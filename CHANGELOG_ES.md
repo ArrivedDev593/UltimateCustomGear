@@ -5,6 +5,7 @@ las notas en inglés y en español en el mismo documento.
 
 | Versión            | Notas                                                             |
 |--------------------|-------------------------------------------------------------------|
+| 1.7.2              | [changelog-1.7.2.md](changelogs/changelog-1.7.2.md)               |
 | 1.7.1              | [changelog-1.7.1.md](changelogs/changelog-1.7.1.md)               |
 | 1.7.0              | [changelog-1.7.0.md](changelogs/changelog-1.7.0.md)               |
 | 1.6.0              | [changelog-1.6.0.md](changelogs/changelog-1.6.0.md)               |

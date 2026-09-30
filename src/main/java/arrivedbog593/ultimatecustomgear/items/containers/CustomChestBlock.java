@@ -169,6 +169,8 @@ public class CustomChestBlock extends CustomContainerBlock {
                 main.compactAndShrinkTo(half);
                 shell.insertAll(low);
                 shell.setSortMode(main.getSortCriterion(), main.isSortDescending());
+                // The survivor is single now; a later neighbor must merge again.
+                shell.setJoined(false);
             }
             return;
         }
@@ -181,6 +183,9 @@ public class CustomChestBlock extends CustomContainerBlock {
             List<ItemStack> low = main.removeRange(0, half);
             main.compactAndShrinkTo(half);
             shell.insertAll(low);
+            // Nothing ever cleared this before: a main left single kept
+            // Joined=true, and the next chest placed beside it never merged.
+            main.setJoined(false);
         }
     }
 
