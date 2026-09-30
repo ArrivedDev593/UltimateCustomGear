@@ -52,7 +52,7 @@ esta es la parte que conviene leer dos veces:
 | Fluidos                  | un sprite del atlas    | `minecraft:block/lava_still`                |
 | **Herramientas y armas** | **un modelo**          | `minecraft:item/diamond_pickaxe`            |
 | Cofres y shulkers        | un sprite del atlas    | `minecraft:christmas`                       |
-| Armadura 3D de GeckoLib  | un archivo, completo   | `othermod:geo/armor/su_armadura.geo.json`   |
+| Armadura 3D de GeckoLib  | un ID de caché         | `othermod:armor/su_armadura`                |
 
 Las herramientas y armas son la excepción a propósito: heredar un modelo trae
 consigo las transformaciones de ese objeto, y por eso un pico referenciado se

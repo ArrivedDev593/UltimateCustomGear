@@ -137,15 +137,16 @@ public class CustomChestBlock extends CustomContainerBlock {
      * the chest that remains.
      */
     @Override
-    protected void affectNeighborsAfterRemoval(@NotNull BlockState state,
-                                               net.minecraft.server.level.@NotNull ServerLevel level,
-                                               @NotNull BlockPos pos, boolean movedByPiston) {
-        // The "did the block really change" guard is gone with onRemove: this only
-        // runs once the block is actually removed.
+    protected void onBlockEntityRemoved(BlockState state, Level level, BlockPos pos,
+                                        CustomContainerBlockEntity be) {
+        // NOT in affectNeighborsAfterRemoval: both block entities have to still
+        // exist for the split, and by then this one is gone — the split silently
+        // did nothing, so breaking the main dropped all 2N and breaking the shell
+        // dropped nothing.
         if (canDouble() && state.getValue(TYPE) != ChestType.SINGLE) {
             splitInventory(state, level, pos);
         }
-        super.affectNeighborsAfterRemoval(state, level, pos, movedByPiston);
+        super.onBlockEntityRemoved(state, level, pos, be);
     }
 
     private void splitInventory(BlockState state, Level level, BlockPos pos) {
@@ -170,6 +171,8 @@ public class CustomChestBlock extends CustomContainerBlock {
                 main.compactAndShrinkTo(half);
                 shell.insertAll(low);
                 shell.setSortMode(main.getSortCriterion(), main.isSortDescending());
+                // The survivor is single now; a later neighbor must merge again.
+                shell.setJoined(false);
             }
             return;
         }
@@ -182,6 +185,9 @@ public class CustomChestBlock extends CustomContainerBlock {
             List<ItemStack> low = main.removeRange(0, half);
             main.compactAndShrinkTo(half);
             shell.insertAll(low);
+            // Nothing ever cleared this before: a main left single kept
+            // Joined=true, and the next chest placed beside it never merged.
+            main.setJoined(false);
         }
     }
 

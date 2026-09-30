@@ -128,8 +128,8 @@ public abstract class CustomContainerBlock extends CustomBlock implements Entity
 
     /**
      * The block entity is ALREADY GONE by the time this runs — getBlockEntity
-     * returns null here, confirmed in the log. Everything that needs to read the
-     * inventory moved to playerWillDestroy; only the comparator update, which
+     * returns null here, confirmed in the log. Everything that needs the
+     * inventory lives in onBlockEntityRemoved; only the comparator update, which
      * needs nothing, is left.
      */
     @Override
@@ -141,37 +141,54 @@ public abstract class CustomContainerBlock extends CustomBlock implements Entity
     }
 
     /**
-     * Where a keeps_contents container hands its inventory to the dropped item.
+     * What 1.21.1 did in onRemove: spill the contents, or store them in the
+     * dropped item when the container keeps them.
      * <p>
-     * This runs while the block entity still exists, unlike
-     * affectNeighborsAfterRemoval. The loot table for these containers is empty
-     * on purpose, so this is the only source of the drop — including the creative
-     * rule, which Player.destroyBlock would otherwise skip along with the table.
+     * Called from the block entity's preRemoveSideEffects, the only hook left
+     * that runs for EVERY removal — player, explosion, piston, /setblock — while
+     * the block entity still exists. playerWillDestroy only sees players, and
+     * affectNeighborsAfterRemoval comes too late.
+     * <p>
+     * Storing happens HERE and not through a copy_components loot function: that
+     * function copies components off the block entity, and this inventory lives
+     * in our own component. The loot table for these containers is empty on
+     * purpose, so this is the only source of the drop.
+     */
+    protected void onBlockEntityRemoved(BlockState state, Level level, BlockPos pos,
+                                        CustomContainerBlockEntity be) {
+        if (container.keepsContents()) {
+            // Vanilla drops a shulker broken in creative ONLY when it holds
+            // something; an empty one breaks like any other block. Pending
+            // overflow is part of the snapshot, so it travels in the item too.
+            if (!be.isCreativeBreak() || !be.isEmpty()) {
+                ItemStack drop = new ItemStack(this);
+                if (!be.isEmpty()) {
+                    drop.set(ComponentRegistry.CONTAINER_CONTENTS.get(), be.snapshot());
+                }
+                Containers.dropItemStack(level, pos.getX(), pos.getY(), pos.getZ(), drop);
+            }
+            be.clearContent();
+        } else {
+            // Anything still waiting for the scheduled tick has to come out here
+            // too: dropContents only walks the container itself.
+            be.spillOverflow();
+            Containers.dropContents(level, pos, be);
+        }
+    }
+
+    /**
+     * The creative rule lives in Player.destroyBlock, which skips the loot table
+     * but not our drop, so the block entity is told who broke it. Stored on the
+     * BLOCK ENTITY, not here: a Block is a singleton shared by every container
+     * of this type, and a field here would be shared by every player at once.
      */
     @Override
     public @NotNull BlockState playerWillDestroy(@NotNull Level level, @NotNull BlockPos pos,
                                                  @NotNull BlockState state, @NotNull Player player) {
         if (!level.isClientSide()
+                && player.getAbilities().instabuild
                 && level.getBlockEntity(pos) instanceof CustomContainerBlockEntity be) {
-            // Whatever is still waiting on the scheduled tick has to come out
-            // either way: the block entity's own removal only walks the container.
-            be.spillOverflow();
-
-            if (container.keepsContents()) {
-                // Vanilla drops a shulker broken in creative ONLY when it holds
-                // something; an empty one breaks like any other block.
-                if (!player.getAbilities().instabuild || !be.isEmpty()) {
-                    ItemStack drop = new ItemStack(this);
-                    if (!be.isEmpty()) {
-                        drop.set(ComponentRegistry.CONTAINER_CONTENTS.get(), be.snapshot());
-                    }
-                    Containers.dropItemStack(level, pos.getX(), pos.getY(), pos.getZ(), drop);
-                }
-                // Emptied BEFORE the block goes: the block entity spills whatever
-                // is left when it is removed, which would duplicate everything
-                // just packed into the dropped item.
-                be.clearContent();
-            }
+            be.markCreativeBreak();
         }
         return super.playerWillDestroy(level, pos, state, player);
     }

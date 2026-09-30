@@ -82,6 +82,32 @@ public abstract class CustomContainerBlockEntity extends BaseContainerBlockEntit
         setChanged();
     }
 
+    /**
+     * Set by playerWillDestroy right before a creative player removes the block,
+     * read by preRemoveSideEffects. Never saved: it only has to survive the
+     * few calls between the two.
+     */
+    private boolean creativeBreak;
+
+    public void markCreativeBreak() { this.creativeBreak = true; }
+
+    public boolean isCreativeBreak() { return creativeBreak; }
+
+    /**
+     * Runs for every removal while this block entity still exists — the
+     * replacement for 1.21.1's Block.onRemove. The default would drop the
+     * contents loose, which is wrong for keeps_contents and for half of a pair,
+     * so the block decides instead.
+     */
+    @Override
+    public void preRemoveSideEffects(@NotNull BlockPos pos, @NotNull BlockState state) {
+        if (level != null && state.getBlock() instanceof CustomContainerBlock block) {
+            block.onBlockEntityRemoved(state, level, pos, this);
+        } else {
+            super.preRemoveSideEffects(pos, state);
+        }
+    }
+
 
     protected CustomContainerBlockEntity(BlockEntityType<?> type, BlockPos pos, BlockState state) {
         super(type, pos, state);
@@ -591,11 +617,17 @@ public abstract class CustomContainerBlockEntity extends BaseContainerBlockEntit
      * On placement that arrives first, does not fit the single chest being
      * placed, and the excess is dropped on the ground while the component's
      * half goes inside. The same contents, twice, by two routes.
+     * <p>
+     * "Joined" goes too. It describes the pair this block WAS part of, and the
+     * copy is always placed as a new block: carried over, it told the tick the
+     * new pair was already merged, so the merge never ran — the menu showed a
+     * single chest and the other half's items were unreachable.
      */
     @Override
     public void removeComponentsFromTag(@NotNull ValueOutput output) {
         super.removeComponentsFromTag(output);
         output.discard("Contents");
+        output.discard("Joined");
     }
 
     /**

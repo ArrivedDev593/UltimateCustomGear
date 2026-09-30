@@ -52,7 +52,7 @@ this is the part worth reading twice:
 | Fluids              | an atlas sprite    | `minecraft:block/lava_still`                |
 | **Tools & weapons** | **a model**        | `minecraft:item/diamond_pickaxe`            |
 | Chests & shulkers   | an atlas sprite    | `minecraft:christmas`                       |
-| GeckoLib 3D armor   | a file, in full    | `othermod:geo/armor/their_armor.geo.json`   |
+| GeckoLib 3D armor   | a cached id        | `othermod:armor/their_armor`                |
 
 Tools and weapons are the odd one out on purpose: inheriting a model brings that
 item's display transforms along, which is why a referenced pickaxe sits in the
