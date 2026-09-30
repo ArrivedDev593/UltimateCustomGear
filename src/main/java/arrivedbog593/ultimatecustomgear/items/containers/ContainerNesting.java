@@ -29,6 +29,12 @@ public final class ContainerNesting {
         if (stack.has(ComponentRegistry.CONTAINER_CONTENTS.get())) return true;
         if (stack.has(DataComponents.CONTAINER)) return true;
 
+        // A backpack is not a BlockItem, so the branch below never saw one. An
+        // empty one carries no component yet, and keeps_contents cannot be false
+        // on a backpack — it always grows an inventory the moment someone fills
+        // it, so it never nests.
+        if (stack.getItem() instanceof CustomBackpackItem) return true;
+
         if (stack.getItem() instanceof BlockItem blockItem) {
             Block block = blockItem.getBlock();
             if (block instanceof ShulkerBoxBlock) return true;

@@ -252,9 +252,13 @@ public final class GearModelGenerator {
      */
     private static void loadArmor3D(PackSink pack, GearData data) {
         GearData.Armor3DData armor3d = data.texture.armor3d;
-        copy3DAsset(pack, armor3d.model,     "geo/armor/" + data.id + ".geo.json",              "model",     data.id);
-        copy3DAsset(pack, armor3d.texture,   "textures/armor/" + data.id + ".png",              "texture",   data.id);
-        copy3DAsset(pack, armor3d.animation, "animations/armor/" + data.id + ".animation.json", "animation", data.id);
+        // GeckoLib 5 scans assets/<any namespace>/geckolib/models and
+        // .../geckolib/animations at every resource reload and serves what it
+        // finds from a cache. A file written anywhere else is never picked up.
+        // The texture is NOT scanned: it is read by path like any other.
+        copy3DAsset(pack, armor3d.model,     "geckolib/models/armor/" + data.id + ".geo.json",           "model",     data.id);
+        copy3DAsset(pack, armor3d.texture,   "textures/armor/" + data.id + ".png",                       "texture",   data.id);
+        copy3DAsset(pack, armor3d.animation, "geckolib/animations/armor/" + data.id + ".animation.json", "animation", data.id);
     }
 
     /**

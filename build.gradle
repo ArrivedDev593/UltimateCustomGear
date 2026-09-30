@@ -77,13 +77,13 @@ neoForge {
     runs {
         client {
             client()
-            systemProperty 'neoforge.enabledGameTestNamespaces', project.mod_id
+            gameDirectory = file("run/${minecraft_version}/client")
         }
 
         server {
             server()
             programArgument '--nogui'
-            gameDirectory = file('runServer')
+            gameDirectory = file("run/${minecraft_version}/server")
         }
 
         gameTestServer {
@@ -120,11 +120,15 @@ dependencies {
     localRuntime "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
 
     // Geckolib
-    implementation "com.geckolib:geckolib-neoforge-${minecraft_version}:${geckolib_version}"
+    compileOnly "com.geckolib:geckolib-neoforge-${minecraft_version}:${geckolib_version}"
+    localRuntime "com.geckolib:geckolib-neoforge-${minecraft_version}:${geckolib_version}"
 
     // Curios
     compileOnly "top.theillusivec4.curios:curios-neoforge:${curios_version}+${minecraft_version}:api"
     runtimeOnly "top.theillusivec4.curios:curios-neoforge:${curios_version}+${minecraft_version}"
+
+    // Jade
+    localRuntime "curse.maven:jade-324717:8650925"
 }
 
 var generateModMetadata = tasks.register("generateModMetadata", ProcessResources) {

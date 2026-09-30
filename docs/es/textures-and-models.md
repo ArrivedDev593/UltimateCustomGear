@@ -52,7 +52,7 @@ esta es la parte que conviene leer dos veces:
 | Fluidos                  | un sprite del atlas    | `minecraft:block/lava_still`                |
 | **Herramientas y armas** | **un modelo**          | `minecraft:item/diamond_pickaxe`            |
 | Cofres y shulkers        | un sprite del atlas    | `minecraft:christmas`                       |
-| Armadura 3D de GeckoLib  | un archivo, completo   | `othermod:geo/armor/su_armadura.geo.json`   |
+| Armadura 3D de GeckoLib  | un ID de caché         | `othermod:armor/su_armadura`                |
 
 Las herramientas y armas son la excepción a propósito: heredar un modelo trae
 consigo las transformaciones de ese objeto, y por eso un pico referenciado se
@@ -157,10 +157,14 @@ Modela tu armadura en [Blockbench](https://www.blockbench.net/) con el formato
 | `texture`   | Sí          | PNG pintado para el desplegado UV de ese modelo (no el icono, no una capa)      |
 | `animation` | No          | `.animation.json`; sin él el modelo es estático                                 |
 
-Estos tres usan **rutas completas**, a diferencia de todo lo demás de esta
-página. Un archivo se escribe tal como está en tu carpeta, y una referencia al
-modelo de otro mod se escribe entera — `"othermod:geo/armor/su_armadura.geo.json"`.
-GeckoLib los carga exactamente como los escribas, así que no se les añade nada.
+**Tus propios archivos** se escriben tal como están en tu carpeta, con extensión
+y todo — esa extensión es lo que los marca como ficheros y no como referencias.
+
+**Una referencia al modelo o la animación de otro mod** se escribe con el ID con
+el que GeckoLib lo cachea, que no es ni la ruta del fichero ni la del pack: sin
+el prefijo `geo/` y sin la extensión `.geo.json`. `"othermod:armor/su_armadura"`,
+no `"othermod:geo/armor/su_armadura.geo.json"`. El campo `texture` es la
+excepción por partida doble — es una ruta de verdad y conserva su `.png`.
 
 Referenciar el modelo de otro mod no copia nada, y ese es el punto: evita
 redistribuir recursos que no son tuyos. El precio es que ese mod pasa a ser

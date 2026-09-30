@@ -40,3 +40,4 @@ runServer/
 **/src/generated/**/.cache/
 repo/
 !**/src/**/repo/
+/.mcp.json

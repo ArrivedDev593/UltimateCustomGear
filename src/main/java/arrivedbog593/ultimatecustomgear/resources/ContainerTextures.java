@@ -57,11 +57,6 @@ public final class ContainerTextures {
         return CACHE.computeIfAbsent(new Key(block, type), ContainerTextures::resolve);
     }
 
-    /** Items are always single, so this is the form the item model calls. */
-    public static Identifier forBlock(Block block) {
-        return forBlock(block, ChestType.SINGLE);
-    }
-
     /** A shulker has one 64x64 unwrap, under the same 'single' key as a chest. */
     public static Identifier forShulker(Block block) {
         return CACHE.computeIfAbsent(new Key(block, ChestType.SINGLE), ContainerTextures::resolve);
@@ -144,17 +139,20 @@ public final class ContainerTextures {
      * block face gets them added for free.
      */
     private static String spriteName(String value) {
-        String v = value;
-        int textures = v.indexOf("textures/");
-        if (textures >= 0) {
-            // Keep the namespace, drop everything up to and including the folder
-            // the atlas is built from.
-            String namespace = v.substring(0, v.indexOf(':') + 1);
-            String path = v.substring(textures + "textures/".length());
-            int lastSlash = path.lastIndexOf('/');
-            v = namespace + (lastSlash >= 0 ? path.substring(lastSlash + 1) : path);
-        }
-        return v.endsWith(".png") ? v.substring(0, v.length() - ".png".length()) : v;
+        int colon = value.indexOf(':');
+        String namespace = colon >= 0 ? value.substring(0, colon + 1) : "";
+        String path = colon >= 0 ? value.substring(colon + 1) : value;
+
+        // The atlas is FLAT: a sprite is named by its file, and every directory
+        // above it is noise. Keying on "textures/" only caught the longest of
+        // the forms an author might write — 'entity/chest/christmas' has no such
+        // segment and was passed through unchanged, which the atlas then failed
+        // to find.
+        int lastSlash = path.lastIndexOf('/');
+        if (lastSlash >= 0) path = path.substring(lastSlash + 1);
+        if (path.endsWith(".png")) path = path.substring(0, path.length() - ".png".length());
+
+        return namespace + path;
     }
 
     /** Where this container's own sprite lives, as the atlas names it. */

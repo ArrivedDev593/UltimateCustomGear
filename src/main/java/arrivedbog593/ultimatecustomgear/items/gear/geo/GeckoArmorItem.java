@@ -18,6 +18,7 @@ import net.minecraft.world.entity.EquipmentSlot;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.fml.ModList;
+import org.jspecify.annotations.NonNull;
 
 import java.util.function.Consumer;
 
@@ -104,9 +105,10 @@ public class GeckoArmorItem extends CustomArmorItem implements GeoItem {
      * the pack instead would find nothing. A file was copied under this gear's
      * id, so its path is derived rather than read.
      * <p>
-     * Note these take the FULL path — 'geo/...', 'textures/...', extension and
-     * all — because GeckoLib loads them as written, unlike the model system
-     * which completes short forms itself.
+     * Note the model and animation ids are CACHE KEYS, not paths: GeckoLib
+     * strips 'geckolib/models/' and the '.geo.json' suffix when it indexes what
+     * it scanned, so the id is what is left. The texture is a real path and
+     * keeps its '.png'.
      */
     private static class GearArmorGeoModel extends GeoModel<GeckoArmorItem> {
 
@@ -117,12 +119,12 @@ public class GeckoArmorItem extends CustomArmorItem implements GeoItem {
         GearArmorGeoModel(GearData data) {
             GearData.Armor3DData armor3d = data.texture != null ? data.texture.armor3d : null;
 
-            this.modelResource = resolve(armor3d == null ? null : armor3d.model,
-                    "geo/armor/" + data.id + ".geo.json");
+            this.modelResource = resolveCached(armor3d == null ? null : armor3d.model,
+                    "armor/" + data.id);
             this.textureResource = resolve(armor3d == null ? null : armor3d.texture,
                     "textures/armor/" + data.id + ".png");
-            this.animationResource = resolve(armor3d == null ? null : armor3d.animation,
-                    "animations/armor/" + data.id + ".animation.json");
+            this.animationResource = resolveCached(armor3d == null ? null : armor3d.animation,
+                    "armor/" + data.id);
         }
 
         private static Identifier packLoc(String path) {
@@ -133,6 +135,33 @@ public class GeckoArmorItem extends CustomArmorItem implements GeoItem {
          * A reference is used as written; anything else was copied into the
          * pack under the derived path.
          */
+        /**
+         * A reference is turned into the id GeckoLib caches the asset under, so
+         * the JSON can keep naming the FILE — which is what a pack author can
+         * actually look up in the other mod's jar. GeckoLib strips the same two
+         * things when it indexes, so both spellings land on the same key.
+         */
+        private static Identifier resolveCached(String value, String packPath) {
+            if (value != null && TextureRef.kindOf(value) == TextureRef.Kind.REFERENCE) {
+                Identifier rl = Identifier.tryParse(value);
+                if (rl != null) return rl.withPath(cacheKey(rl.getPath()));
+            }
+            return packLoc(packPath);
+        }
+
+        private static String cacheKey(String path) {
+            for (String prefix : new String[]{"geckolib/models/", "geckolib/animations/"}) {
+                if (path.startsWith(prefix)) { path = path.substring(prefix.length()); break; }
+            }
+            for (String suffix : new String[]{".geo.json", ".animation.json", ".animations.json", ".json"}) {
+                if (path.endsWith(suffix)) { path = path.substring(0, path.length() - suffix.length()); break; }
+            }
+            return path;
+        }
+
+        /**
+         * Textures are not cached: they are read by path, extension and all.
+         */
         private static Identifier resolve(String value, String packPath) {
             if (value != null && TextureRef.kindOf(value) == TextureRef.Kind.REFERENCE) {
                 Identifier rl = Identifier.tryParse(value);
@@ -142,17 +171,17 @@ public class GeckoArmorItem extends CustomArmorItem implements GeoItem {
         }
 
         @Override
-        public Identifier getModelResource(GeoRenderState renderState) {
+        public @NonNull Identifier getModelResource(@NonNull GeoRenderState renderState) {
             return this.modelResource;
         }
 
         @Override
-        public Identifier getTextureResource(GeoRenderState renderState) {
+        public @NonNull Identifier getTextureResource(@NonNull GeoRenderState renderState) {
             return this.textureResource;
         }
 
         @Override
-        public Identifier getAnimationResource(GeckoArmorItem animatable) {
+        public @NonNull Identifier getAnimationResource(@NonNull GeckoArmorItem animatable) {
             return this.animationResource;
         }
     }

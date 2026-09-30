@@ -28,9 +28,6 @@ import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
-import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
-
 /**
  * Everything the four container subtypes share: the inventory, the drop
  * behaviour, the comparator output, opening the menu and the scheduled tick.
@@ -50,16 +47,6 @@ public abstract class CustomContainerBlock extends CustomBlock implements Entity
 
     protected final ContainerContentData data;
     protected final ContainerData container;
-
-    /**
-     * Positions being broken by a creative player right now.
-     * <p>
-     * A Block is a SINGLETON — one instance serves every container of this type
-     * on the whole server — so a bare boolean here would be shared by every
-     * player breaking one at the same time, and one of them would read the
-     * other's flag. Keyed by position, a break can only ever see its own.
-     */
-    private final Set<BlockPos> creativeBreaks = ConcurrentHashMap.newKeySet();
 
     /**
      * Takes FINISHED properties, not the raw ones the registry hands out. The
@@ -140,63 +127,69 @@ public abstract class CustomContainerBlock extends CustomBlock implements Entity
     }
 
     /**
-     * Spills the contents on break, or stores them in the dropped item when the
-     * container keeps them.
-     * <p>
-     * Storing happens HERE and not through a copy_components loot function: that
-     * function copies components off the block entity, and this inventory lives
-     * in our own component, not on the block entity. Doing it in code also lets
-     * the drop carry the exact size the block had.
+     * The block entity is ALREADY GONE by the time this runs — getBlockEntity
+     * returns null here. Everything that needs the inventory lives in
+     * onBlockEntityRemoved; only the comparator update, which needs nothing, is
+     * left.
      */
     @Override
     protected void affectNeighborsAfterRemoval(@NotNull BlockState state,
                                                net.minecraft.server.level.@NotNull ServerLevel level,
                                                @NotNull BlockPos pos, boolean movedByPiston) {
-        // NO "did the block actually change" GUARD ANY MORE. onRemove fired on
-        // every state change and had to check; this only fires once the block is
-        // really gone, so the check would now always pass.
-        {
-            if (level.getBlockEntity(pos) instanceof CustomContainerBlockEntity be) {
-                if (container.keepsContents()) {
-                    // Vanilla drops a shulker broken in creative ONLY when it
-                    // holds something; an empty one breaks like any other block.
-                    // The loot table for these is empty, so this is the only
-                    // source, and the rule has to be applied here.
-                    boolean creative = creativeBreaks.remove(pos);
-                    if (!creative || !be.isEmpty()) {
-                        ItemStack drop = new ItemStack(this);
-                        if (!be.isEmpty()) {
-                            drop.set(ComponentRegistry.CONTAINER_CONTENTS.get(),
-                                    be.snapshot());
-                        }
-                        Containers.dropItemStack(level, pos.getX(), pos.getY(), pos.getZ(), drop);
-                    }
-                    be.clearContent();
-                    creativeBreaks.remove(pos);
-                } else {
-                    // Anything still waiting for the scheduled tick has to come
-                    // out here too: dropContents only walks the container itself.
-                    be.spillOverflow();
-                    Containers.dropContents(level, pos, be);
+        level.updateNeighbourForOutputSignal(pos, this);
+        super.affectNeighborsAfterRemoval(state, level, pos, movedByPiston);
+    }
+
+    /**
+     * What 1.21.1 did in onRemove: spill the contents, or store them in the
+     * dropped item when the container keeps them.
+     * <p>
+     * Called from the block entity's preRemoveSideEffects, the only hook left
+     * that runs for EVERY removal — player, explosion, piston, /setblock — while
+     * the block entity still exists. playerWillDestroy only sees players, and
+     * affectNeighborsAfterRemoval comes too late.
+     * <p>
+     * Storing happens HERE and not through a copy_components loot function: that
+     * function copies components off the block entity, and this inventory lives
+     * in our own component. The loot table for these containers is empty on
+     * purpose, so this is the only source of the drop.
+     */
+    protected void onBlockEntityRemoved(BlockState state, Level level, BlockPos pos,
+                                        CustomContainerBlockEntity be) {
+        if (container.keepsContents()) {
+            // Vanilla drops a shulker broken in creative ONLY when it holds
+            // something; an empty one breaks like any other block. Pending
+            // overflow is part of the snapshot, so it travels in the item too.
+            if (!be.isCreativeBreak() || !be.isEmpty()) {
+                ItemStack drop = new ItemStack(this);
+                if (!be.isEmpty()) {
+                    drop.set(ComponentRegistry.CONTAINER_CONTENTS.get(), be.snapshot());
                 }
-                level.updateNeighbourForOutputSignal(pos, this);
+                Containers.dropItemStack(level, pos.getX(), pos.getY(), pos.getZ(), drop);
             }
-            super.affectNeighborsAfterRemoval(state, level, pos, movedByPiston);
+            be.clearContent();
+        } else {
+            // Anything still waiting for the scheduled tick has to come out here
+            // too: dropContents only walks the container itself.
+            be.spillOverflow();
+            Containers.dropContents(level, pos, be);
         }
     }
 
     /**
-     * The drop for a keeps_contents container is emitted in code, not by a loot
-     * table, so it does not inherit vanilla's "creative breaks drop nothing"
-     * rule — that lives in Player.destroyBlock, which bypasses the table
-     * entirely. Recording the position here lets onRemove apply the same rule.
+     * The creative rule lives in Player.destroyBlock, which skips the loot table
+     * but not our drop, so the block entity is told who broke it. Stored on the
+     * BLOCK ENTITY, not here: a Block is a singleton shared by every container
+     * of this type, and a field here would be shared by every player at once.
      */
     @Override
     public @NotNull BlockState playerWillDestroy(@NotNull Level level, @NotNull BlockPos pos,
                                                  @NotNull BlockState state, @NotNull Player player) {
-        // immutable() matters: Minecraft reuses mutable BlockPos objects, and
-        // storing one without copying stores something that changes on its own.
-        if (player.getAbilities().instabuild) creativeBreaks.add(pos.immutable());
+        if (!level.isClientSide()
+                && player.getAbilities().instabuild
+                && level.getBlockEntity(pos) instanceof CustomContainerBlockEntity be) {
+            be.markCreativeBreak();
+        }
         return super.playerWillDestroy(level, pos, state, player);
     }
 

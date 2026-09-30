@@ -41,7 +41,7 @@ public final class CustomTier {
                 data.durability > 0 ? data.durability : 64,
                 data.miningSpeed > 0 ? data.miningSpeed : 1.0f,
                 Math.max(data.attackDamageBonus, 0),
-                data.enchantability,
+                Math.max(data.enchantability, 1),
                 NO_REPAIR_ITEMS);
     }
 

@@ -148,7 +148,7 @@ public class ContainerRegistry {
 
     /**
      * ONE BlockItem class for every container shape.
-     *
+     * <p>
      * Chests and shulkers used to need a subclass each, purely to hand rendering
      * over to a BlockEntityWithoutLevelRenderer. That class is gone: a shape
      * that cannot be baked is now declared in the item MODEL, as a
@@ -157,7 +157,7 @@ public class ContainerRegistry {
      * subclasses were deleted rather than kept as empty shells.
      */
     private static BlockItem itemFor(ContainerContentData data, Block block, Item.Properties props) {
-        return new CustomContainerBlockItem(block, containerItemProps(data, props));
+        return new CustomContainerBlockItem(block, blockContainerItemProps(data, props));
     }
 
     /**
@@ -192,6 +192,16 @@ public class ContainerRegistry {
         Item.Properties p = props;
         if (data.fireResistant) p = p.fireResistant();
         return data.container.keepsContents() ? p.stacksTo(1) : p;
+    }
+
+    /**
+     * Same as BlockRegistry: a BlockItem no longer inherits its block's
+     * translation key, so it has to ask for the block prefix explicitly. NOT
+     * applied to a backpack — that registers a plain Item, and LangGenerator
+     * writes item.customgear.&lt;id&gt; for it on purpose.
+     */
+    private static Item.Properties blockContainerItemProps(ContainerContentData data, Item.Properties props) {
+        return containerItemProps(data, props.useBlockDescriptionPrefix());
     }
 
     /**

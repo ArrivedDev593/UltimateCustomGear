@@ -26,6 +26,7 @@ import net.minecraft.world.level.block.entity.*;
 import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.level.block.state.properties.BlockStateProperties;
 import net.minecraft.world.level.block.state.properties.ChestType;
+import net.minecraft.world.level.storage.ValueOutput;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jetbrains.annotations.NotNull;
@@ -80,6 +81,32 @@ public abstract class CustomContainerBlockEntity extends BaseContainerBlockEntit
     public void setJoined(boolean joined) {
         this.joined = joined;
         setChanged();
+    }
+
+    /**
+     * Set by playerWillDestroy right before a creative player removes the block,
+     * read by preRemoveSideEffects. Never saved: it only has to survive the
+     * few calls between the two.
+     */
+    private boolean creativeBreak;
+
+    public void markCreativeBreak() { this.creativeBreak = true; }
+
+    public boolean isCreativeBreak() { return creativeBreak; }
+
+    /**
+     * Runs for every removal while this block entity still exists — the
+     * replacement for 1.21.1's Block.onRemove. The default would drop the
+     * contents loose, which is wrong for keeps_contents and for half of a pair,
+     * so the block decides instead.
+     */
+    @Override
+    public void preRemoveSideEffects(@NotNull BlockPos pos, @NotNull BlockState state) {
+        if (level != null && state.getBlock() instanceof CustomContainerBlock block) {
+            block.onBlockEntityRemoved(state, level, pos, this);
+        } else {
+            super.preRemoveSideEffects(pos, state);
+        }
     }
 
 
@@ -171,6 +198,7 @@ public abstract class CustomContainerBlockEntity extends BaseContainerBlockEntit
 
         this.sortCriterion = input.getByteOr("SortCriterion", (byte) 0);
         this.sortDescending = input.getBooleanOr("SortDescending", false);
+        this.joined = input.getBooleanOr("Joined", false);
     }
 
     @Override
@@ -180,6 +208,12 @@ public abstract class CustomContainerBlockEntity extends BaseContainerBlockEntit
 
         output.putByte("SortCriterion", sortCriterion);
         output.putBoolean("SortDescending", sortDescending);
+
+        // Without this the merge tick runs again on every world load, because
+        // isJoined() comes back false. It then pushes an ALREADY merged
+        // inventory into the high half a second time: what does not fit is
+        // re-inserted from slot 0, and the contents end up split in two.
+        output.putBoolean("Joined", joined);
     }
 
     @Override
@@ -567,6 +601,27 @@ public abstract class CustomContainerBlockEntity extends BaseContainerBlockEntit
         if (!isEmpty()) {
             components.set(ComponentRegistry.CONTAINER_CONTENTS.get(), snapshot());
         }
+    }
+
+    /**
+     * Strips from block_entity_data what already travels as a component.
+     * <p>
+     * saveToItem attaches the whole block entity NBT, which on the main half of
+     * a pair is all 2N slots — not the half collectImplicitComponents wrote. On
+     * placement that arrives first, does not fit the single chest being placed,
+     * and the excess is dropped on the ground while the component's half goes
+     * inside: the same contents twice, by two routes.
+     * <p>
+     * "Joined" goes too. It describes the pair this block WAS part of, and the
+     * copy is always placed as a new block: carried over, it told the tick the
+     * new pair was already merged, so the merge never ran — the menu showed a
+     * single chest and the other half's items were unreachable.
+     */
+    @Override
+    public void removeComponentsFromTag(@NotNull ValueOutput output) {
+        super.removeComponentsFromTag(output);
+        output.discard("Contents");
+        output.discard("Joined");
     }
 
     /**

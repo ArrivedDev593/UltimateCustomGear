@@ -101,7 +101,7 @@ public class CustomArmorItem extends Item {
                         ArmorType.BOOTS,      piece.equals("boots")      ? pieceData.defense : 0,
                         ArmorType.BODY,       0
                 ),
-                data.enchantability,
+                Math.max(data.enchantability, 1),
                 SoundEvents.ARMOR_EQUIP_IRON,
                 (float) pieceData.toughness,
                 (float) pieceData.knockback_resistance,

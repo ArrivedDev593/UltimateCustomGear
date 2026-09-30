@@ -81,8 +81,15 @@ public class BlockRegistry {
         BLOCK_MAP.put(loc, data);
     }
 
+    /**
+     * An item's translation key now comes from its own registry entry with an
+     * 'item.' prefix; a BlockItem no longer inherits its block's. Without this
+     * the name is looked up as item.customgear.&lt;id&gt; while LangGenerator wrote
+     * block.customgear.&lt;id&gt;, and the raw key shows instead of a name.
+     */
     private static Item.Properties blockItemProps(BlockData data, Item.Properties props) {
-        return data.fireResistant ? props.fireResistant() : props;
+        Item.Properties p = props.useBlockDescriptionPrefix();
+        return data.fireResistant ? p.fireResistant() : p;
     }
 
     /**
