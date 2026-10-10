@@ -14,7 +14,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write # needed to push the curseforge-* tag
 
 jobs:
   build:
@@ -38,6 +38,14 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x gradlew
 
+      - name: Read mod properties
+        id: gradle_props
+        run: |
+          set -euo pipefail
+          version=$(grep -E '^mod_version=' gradle.properties | head -n1 | cut -d= -f2- | tr -d '[:space:]')
+          [ -n "$version" ] || { echo "mod_version not found in gradle.properties"; exit 1; }
+          echo "mod_version=$version" >> "$GITHUB_OUTPUT"
+
       - name: Build
         run: ./gradlew build
 
@@ -47,3 +55,61 @@ jobs:
           name: ultimatecustomgear-dev
           path: build/libs/*.jar
           retention-days: 14
+
+      # Publishes the jar to CurseForge only when the pushed commit message contains [curseforge], optionally with a
+      # release type: [curseforge], [curseforge beta] or [curseforge alpha]. The changelog is the section of this
+      # version in CHANGELOG.md or, without it, the body of the commit message. Needs the CURSEFORGE_TOKEN secret and
+      # the CURSEFORGE_PROJECT_ID variable of the repository.
+      - name: Publish to CurseForge
+        if: ${{ github.event_name == 'push' && contains(github.event.head_commit.message, '[curseforge') }}
+        env:
+          CURSEFORGE_TOKEN: ${{ secrets.CURSEFORGE_TOKEN }}
+          CURSEFORGE_PROJECT_ID: ${{ vars.CURSEFORGE_PROJECT_ID }}
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message }}
+          MOD_VERSION: ${{ steps.gradle_props.outputs.mod_version }}
+        run: |
+          set -euo pipefail
+          : "${CURSEFORGE_TOKEN:?Add the CURSEFORGE_TOKEN secret to the repository}"
+          : "${CURSEFORGE_PROJECT_ID:?Add the CURSEFORGE_PROJECT_ID variable to the repository}"
+          MC="1.21.1"
+
+          RELEASE_TYPE=release
+          if [[ "$COMMIT_MESSAGE" =~ \[curseforge\ (alpha|beta|release)\] ]]; then RELEASE_TYPE="${BASH_REMATCH[1]}"; fi
+
+          # The CHANGELOG.md section of this mod version (a "## <version> " heading), else the commit message without
+          # its first line and without the [curseforge] markers, else a plain line
+          CHANGELOG=""
+          if [ -f CHANGELOG.md ]; then
+            CHANGELOG=$(awk -v v="$MOD_VERSION" '/^## /{ if (found) exit; if (index($0, "## " v " ") == 1 && $0 !~ /\(Español\)/) found=1 } found' CHANGELOG.md)
+          fi
+          if [ -z "$CHANGELOG" ]; then
+            CHANGELOG=$(printf '%s\n' "$COMMIT_MESSAGE" | tail -n +2 | sed -E 's/\[curseforge[^]]*\]//g' | sed '/./,$!d')
+          fi
+          [ -n "$CHANGELOG" ] || CHANGELOG="UltimateCustomGear-$MC-$MOD_VERSION."
+
+          # A version that is already on CurseForge (marked with a tag once it was uploaded) is not uploaded again
+          tag="curseforge-neoforge-$MC-$MOD_VERSION"
+          if git ls-remote --exit-code --tags origin "refs/tags/$tag" > /dev/null 2>&1; then
+            echo "$MC $MOD_VERSION is already on CurseForge (tag $tag), not uploading it again"
+            exit 0
+          fi
+
+          jar=$(ls build/libs/*.jar | grep -v -- '-sources' | head -n1)
+          name=$(basename "$jar" .jar)
+
+          metadata=$(jq -nc \
+            --arg changelog "$CHANGELOG" \
+            --arg type "$RELEASE_TYPE" \
+            --arg name "$name" \
+            --arg mc "$MC" \
+            '{changelog: $changelog, changelogType: "markdown", releaseType: $type, displayName: $name,
+              gameVersionNames: [$mc, "NeoForge", "Client", "Server"]}')
+
+          echo "Uploading $jar to CurseForge as a $RELEASE_TYPE for NeoForge $MC"
+          curl -sS --fail-with-body -X POST \
+            "https://minecraft.curseforge.com/api/projects/$CURSEFORGE_PROJECT_ID/upload-file" \
+            -H "X-Api-Token: $CURSEFORGE_TOKEN" \
+            -F "metadata=$metadata" -F "file=@$jar"
+          echo
+          git tag "$tag"
+          git push origin "$tag"
