@@ -13,8 +13,14 @@
 
   "customgear.command.reload.success": "✓ Items reloaded. Press F3+T if you changed textures",
   "customgear.command.reload.error": "✗ Error reloading",
+  "customgear.command.reload.cooldown": "[CustomGear] Reload on cooldown. Wait %ss.",
   "customgear.command.dump.success": "[CustomGear] Dumped %s files to %s",
   "customgear.command.dump.error": "[CustomGear] Dump failed — see the server log for details",
+  "customgear.command.recipes.header": "[CustomGear] Recipes whose main output is %s (%s):",
+  "customgear.command.recipes.none": "[CustomGear] No recipe produces %s. A machine recipe that doesn't report its result can't be found this way — target it by id instead.",
+  "customgear.command.recipes.copy": "Click to copy",
+  "customgear.command.recipes.secondary": "Also a secondary output of (%s) — removing one removes the whole recipe:",
+  "customgear.command.recipes.no_item": "[CustomGear] Hold an item, or name one: /customgear recipes <item>",
 
   "customgear.container.search": "Click to search",
   "customgear.container.search.mod": "@ searches by mod",

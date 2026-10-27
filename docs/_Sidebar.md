@@ -16,6 +16,7 @@
 *Systems*
 - [Textures & Models](textures-and-models)
 - [Recipes](recipes)
+- [Recipe Examples](recipe-examples)
 - [Tags](tags)
 - [Mob Drops](mob-drops)
 - [Damage Resistances](damage-resistances)
@@ -51,6 +52,7 @@
 *Sistemas*
 - [Texturas y modelos](es-textures-and-models)
 - [Recetas](es-recipes)
+- [Ejemplos de recetas](es-recipe-examples)
 - [Tags](es-tags)
 - [Drops de mobs](es-mob-drops)
 - [Resistencias de daño](es-damage-resistances)

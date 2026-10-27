@@ -80,15 +80,17 @@ public class CustomGearMod {
             gearList = GearParser.loadAll(roots);
             universalResult = UniversalParser.loadAll(roots);
 
-            // Capture the content hash of what THIS instance just loaded
-            // (across ALL roots, zips included) — the handshake compares
-            // these captured values, never the disk at join time
-            ContentHasher.capture(roots);
-
             // 1.5. Global final-ID validation — drops colliding entries instead of crashing
             validated = GlobalIdValidator.validate(
                     gearList, universalResult.items, universalResult.blocks,
                     universalResult.fluids, universalResult.containers);
+
+            // Capture the content hash of what THIS instance just loaded
+            // (across ALL roots, zips included) — the handshake compares
+            // these captured values, never the disk at join time. After the
+            // validation, so the files it dropped stay out of the hash.
+            roots.excludeEntries(validated.dropped);
+            ContentHasher.capture(roots);
 
             // A placeable container IS a block for every resource purpose:
             // model, blockstate, lang, loot table, tags and recipe all come from
@@ -114,7 +116,7 @@ public class CustomGearMod {
             ComponentRegistry.register(modEventBus);
             modEventBus.addListener(ClientSetup::onRegisterMenuScreens);
 
-            // 3. Create the dynamic resource pack — igual que lo tienes
+            // 3. Create the dynamic resource pack
             DYNAMIC_PACK = new DynamicResourcePack(
                     new PackLocationInfo(
                             "customgear_dynamic",
@@ -133,6 +135,10 @@ public class CustomGearMod {
             // 5. Generate recipe JSONs (server data)
             RecipeLoader.loadAll(DYNAMIC_PACK, validated.gear,
                     validated.items, allBlocks);
+
+            // 5.1. recipe_patch: additions are files, removals run after every datapack load
+            RecipePatchLoader.loadAll(DYNAMIC_PACK, universalResult.recipePatches);
+            RecipePatchHandler.setPatches(universalResult.recipePatches);
 
 
             // 5.6. Tag files: one shared builder, emitted once at 5.9
@@ -174,6 +180,7 @@ public class CustomGearMod {
         NeoForge.EVENT_BUS.register(ArrowDamageHandler.class);
         NeoForge.EVENT_BUS.register(MobDropHandler.class);
         NeoForge.EVENT_BUS.register(DamageResistanceHandler.class);
+        NeoForge.EVENT_BUS.register(RecipePatchHandler.class);
     }
 
     /**

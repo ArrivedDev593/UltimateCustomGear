@@ -843,7 +843,7 @@ public class CustomContainerScreen extends AbstractContainerScreen<CustomContain
             playClick();
             return true;
         }
-        if (handleTransferKeys(-1, -1, button)) return true;
+        if (handleTransferMouse(button)) return true;
         if (overSearch(mouseX, mouseY)) {
             if (button == InputConstants.MOUSE_BUTTON_LEFT) {
                 focusSearch();
@@ -930,17 +930,21 @@ public class CustomContainerScreen extends AbstractContainerScreen<CustomContain
      * NOT over the player's own inventory, same rule as sorting: those slots
      * belong to vanilla's gestures.
      */
-    private boolean handleTransferKeys(int keyCode, int scanCode, int mouseButton) {
+    private boolean handleTransferKeys(int keyCode, int scanCode) {
+        return handleTransfer(CustomGearKeys.TRANSFER_IN.matches(keyCode, scanCode),
+                CustomGearKeys.TRANSFER_OUT.matches(keyCode, scanCode));
+    }
+
+    /** {@link #handleTransferKeys} for a mouse button bound to a transfer. */
+    private boolean handleTransferMouse(int button) {
+        return handleTransfer(CustomGearKeys.TRANSFER_IN.matchesMouse(button),
+                CustomGearKeys.TRANSFER_OUT.matchesMouse(button));
+    }
+
+    private boolean handleTransfer(boolean in, boolean out) {
         if (overPlayerInventory()) return false;
 
         boolean all = hasShiftDown();
-        boolean in  = mouseButton >= 0
-                ? CustomGearKeys.TRANSFER_IN.matchesMouse(mouseButton)
-                : CustomGearKeys.TRANSFER_IN.matches(keyCode, scanCode);
-        boolean out = mouseButton >= 0
-                ? CustomGearKeys.TRANSFER_OUT.matchesMouse(mouseButton)
-                : CustomGearKeys.TRANSFER_OUT.matches(keyCode, scanCode);
-
         if (in) {
             PacketDistributor.sendToServer(new TransferItemsPayload(true, all));
             playClick();
@@ -975,7 +979,7 @@ public class CustomContainerScreen extends AbstractContainerScreen<CustomContain
             playClick();
             return true;
         }
-        if (!searchBox.isFocused() && handleTransferKeys(keyCode, scanCode, -1)) return true;
+        if (!searchBox.isFocused() && handleTransferKeys(keyCode, scanCode)) return true;
         if (searchBox.isFocused()) {
             if (searchBox.keyPressed(keyCode, scanCode, modifiers)) return true;
             if (searchBox.canConsumeInput()) return true;

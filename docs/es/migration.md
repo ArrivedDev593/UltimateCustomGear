@@ -36,6 +36,13 @@ hiciste, quita el bloque `refs` en lugar de la línea `mode`.
 
 Consulta [Texturas y Modelos](textures-and-models.md) para la regla completa.
 
+### Protocolo de red
+
+Los clientes 1.7.0 no pueden entrar a servidores 1.6.x, ni al revés: 1.7.0 añade
+canales de red que la versión anterior no tiene, y la conexión se rechaza antes
+de entrar. Ambos lados deben actualizarse juntos. No hay nada que cambiar en tus
+JSON.
+
 ## 1.6.0
 
 ### `cooking_time` ahora va en segundos

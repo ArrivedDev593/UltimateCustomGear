@@ -47,6 +47,10 @@ import java.util.Map;
  *       order (which differs across OSes) does not affect the result.</li>
  *   <li>Malformed JSONs are skipped — the parsers skip them identically on
  *       both sides, so they cannot cause real gameplay differences.</li>
+ *   <li>Files that lost a duplicate id (in a parser or in GlobalIdValidator)
+ *       are skipped: which file wins depends on paths and packaging, so the
+ *       hash must cover the winner only. Requires capture() to run after
+ *       GlobalIdValidator, on the same ContentRoots.</li>
  *   <li>The .cache subfolder is excluded (matching the parsers' filter), and
  *       packs/ is excluded from the loose walk — its zips are hashed through
  *       their own mounted roots, not as opaque binary files.</li>
@@ -78,12 +82,13 @@ public final class ContentHasher {
      * mounted zip) as this instance's current content state. Call at the
      * exact points where content is loaded into memory: CustomGearMod's
      * constructor and the /customgear reload command — inside the
-     * try-with-resources, while the zips are still mounted.
+     * try-with-resources, while the zips are still mounted, and after
+     * GlobalIdValidator's drops were passed to {@link ContentRoots#excludeEntries}.
      */
     public static void capture(ContentRoots roots) {
         List<String> canonicalFiles = new ArrayList<>();
         for (ContentRoots.Root root : roots.roots()) {
-            collectCanonicalJsons(root.path(), canonicalFiles);
+            collectCanonicalJsons(roots, root.path(), canonicalFiles);
         }
         currentHash = hashCanonicalList(canonicalFiles);
         LOGGER.info("[CustomGear] Content hash captured: {}", currentHash);
@@ -106,7 +111,7 @@ public final class ContentHasher {
      * hash either, or the handshake would compare content that was never
      * registered on either side.
      */
-    private static void collectCanonicalJsons(Path root, List<String> out) {
+    private static void collectCanonicalJsons(ContentRoots roots, Path root, List<String> out) {
         if (!Files.isDirectory(root)) return;
 
         // Only meaningful on the real filesystem; zip roots cannot escape.
@@ -124,9 +129,12 @@ public final class ContentHasher {
                     .forEach(path -> {
                         if (realFs && !ParserUtils.isSafeChild(path, canonicalRoot)) {
                             LOGGER.warn("[CustomGear] ContentHasher skipping file outside "
-                                    + "customgear/ dir: {}", path);
+                                    + "ultimatecustomgear/ dir: {}", path);
                             return;
                         }
+                        // Read but not loaded (a duplicate id lost): hashing it would let two
+                        // sides that kept different files match.
+                        if (roots.isExcluded(path)) return;
                         try {
                             String raw = Files.readString(path, StandardCharsets.UTF_8);
                             JsonElement parsed = JsonParser.parseString(raw);

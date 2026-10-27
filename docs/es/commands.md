@@ -1,8 +1,9 @@
 # Comandos
 
-| Comando              | Permiso    | Descripción                                              |
-|----------------------|------------|----------------------------------------------------------|
-| `/customgear reload` | OP nivel 2 | Recarga todos los archivos JSON y texturas sin reiniciar |
+| Comando                      | Permiso    | Descripción                                                                                                                                                              |
+|------------------------------|------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `/customgear reload`         | OP nivel 2 | Recarga todos los archivos JSON y texturas sin reiniciar                                                                                                                 |
+| `/customgear recipes [ítem]` | Todos      | Lista las recetas que fabrican un ítem (por defecto el de la mano), con IDs que se copian con un clic. Ver [recipe_patch](recipes.md#cambiar-otras-recetas-recipe_patch) |
 
 ## Qué actualiza el comando reload
 

@@ -106,13 +106,19 @@ public class RecipeLoader {
         return count;
     }
 
-    private static JsonObject buildRecipeJson(String itemId, RecipeData data) {
+    /**
+     * Builds one recipe's JSON, or null when invalid. {@code itemId} is the
+     * output: a bare id is this mod's own item, a full "namespace:path" id is
+     * anyone's — what recipe_patch uses to give a vanilla or foreign item a
+     * recipe in the same friendly format.
+     */
+    public static JsonObject buildRecipeJson(String itemId, RecipeData data) {
         if (data.type == null) {
             LOGGER.warn("[CustomGear] Recipe for '{}' missing 'type' — skipping", itemId);
             return null;
         }
         warnUnusedFields(itemId, data);
-        return switch (data.type) {
+        JsonObject json = switch (data.type) {
             case "shaped"             -> buildShaped(itemId, data);
             case "shapeless"          -> buildShapeless(itemId, data);
             case "smelting"           -> buildCooking("minecraft:smelting", itemId, data, 10f);
@@ -128,6 +134,68 @@ public class RecipeLoader {
                 yield null;
             }
         };
+        // Passthrough already requires its mods: its type's namespace plus "requires".
+        if (json != null && !"passthrough".equals(data.type)) requireIngredientMods(json);
+        return json;
+    }
+
+    /**
+     * A friendly-type recipe naming another mod's item as an ingredient gets a
+     * mod_loaded condition on that mod. Without the mod the recipe is then
+     * skipped quietly, instead of failing to parse and logging an error — which
+     * matters for content written for several modpacks. Tags need nothing: an
+     * empty tag is not an error. Like passthrough, this assumes an item's
+     * namespace is its mod's id, which holds for practically every mod.
+     */
+    private static void requireIngredientMods(JsonObject json) {
+        Set<String> mods = new TreeSet<>();
+        collectIngredientMods(json, mods);
+        addModConditions(json, mods);
+    }
+
+    private static void collectIngredientMods(JsonElement element, Set<String> mods) {
+        if (element.isJsonArray()) {
+            for (JsonElement child : element.getAsJsonArray()) collectIngredientMods(child, mods);
+            return;
+        }
+        if (!element.isJsonObject()) return;
+        for (Map.Entry<String, JsonElement> entry : element.getAsJsonObject().entrySet()) {
+            if (entry.getKey().equals("result")) continue; // the output is not an ingredient
+            JsonElement value = entry.getValue();
+            if (entry.getKey().equals("item") && value.isJsonPrimitive()) {
+                ResourceLocation id = ResourceLocation.tryParse(value.getAsString());
+                if (id == null) continue;
+                String ns = id.getNamespace();
+                if (!ns.equals("minecraft") && !ns.equals("customgear")) mods.add(ns);
+            } else {
+                collectIngredientMods(value, mods);
+            }
+        }
+    }
+
+    /**
+     * Adds a neoforge:mod_loaded condition per mod to a recipe, keeping the
+     * conditions it already has and never adding the same mod twice.
+     */
+    public static void addModConditions(JsonObject json, Collection<String> mods) {
+        if (mods.isEmpty()) return;
+        JsonArray conditions = json.has("neoforge:conditions") && json.get("neoforge:conditions").isJsonArray()
+                ? json.getAsJsonArray("neoforge:conditions")
+                : new JsonArray();
+        Set<String> present = new HashSet<>();
+        for (JsonElement element : conditions) {
+            if (element instanceof JsonObject condition && condition.has("modid")) {
+                present.add(condition.get("modid").getAsString());
+            }
+        }
+        for (String mod : mods) {
+            if (!present.add(mod)) continue;
+            JsonObject condition = new JsonObject();
+            condition.addProperty("type", "neoforge:mod_loaded");
+            condition.addProperty("modid", mod);
+            conditions.add(condition);
+        }
+        json.add("neoforge:conditions", conditions);
     }
 
     // ── Shaped ────────────────────────────────────────────────────────────────
@@ -436,7 +504,8 @@ public class RecipeLoader {
 
     private static JsonObject buildResult(String itemId, int count) {
         JsonObject result = new JsonObject();
-        result.addProperty("id", "customgear:" + itemId);
+        // Own ids never contain ':' (they are registry paths); a recipe_patch output always does.
+        result.addProperty("id", itemId.indexOf(':') >= 0 ? itemId : "customgear:" + itemId);
         if (count > 1) {
             result.addProperty("count", Math.min(count, 64));
         }

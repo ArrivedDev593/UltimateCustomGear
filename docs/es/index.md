@@ -17,6 +17,7 @@
 | [Contenedores](containers.md)                 | Barriles, cofres, shulkers y mochilas                                  |
 | [Texturas y modelos](textures-and-models.md)  | Los tres modos, capas de armadura, modelos 3D con GeckoLib             |
 | [Recetas](recipes.md)                         | Todos los tipos de receta, tags como ingredientes, passthrough         |
+| [Ejemplos de recetas](recipe-examples.md)     | Patches con máquinas de Create, Mekanism y Botania                     |
 | [Tags](tags.md)                               | Pertenecer a tags, tags automáticos del equipamiento, parches          |
 | [Drops de mobs](mob-drops.md)                 | Probabilidad, cantidad, filtros de entidad, Saqueo                     |
 | [Resistencias de daño](damage-resistances.md) | Reducción por tipo de daño, por atacante, o ambos                      |

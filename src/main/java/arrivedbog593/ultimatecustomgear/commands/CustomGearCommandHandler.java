@@ -5,6 +5,7 @@ import arrivedbog593.ultimatecustomgear.data.BlockData;
 import arrivedbog593.ultimatecustomgear.data.ContainerContentData;
 import arrivedbog593.ultimatecustomgear.data.GearData;
 import arrivedbog593.ultimatecustomgear.datapack.*;
+import arrivedbog593.ultimatecustomgear.events.RecipePatchHandler;
 import arrivedbog593.ultimatecustomgear.parser.GearParser;
 import arrivedbog593.ultimatecustomgear.parser.UniversalParser;
 import arrivedbog593.ultimatecustomgear.registry.*;
@@ -48,6 +49,7 @@ public class CustomGearCommandHandler {
         CommandDispatcher<CommandSourceStack> dispatcher = event.getDispatcher();
 
         dispatcher.register(Commands.literal("customgear")
+                .then(RecipesCommand.build(event.getBuildContext()))
                 .then(Commands.literal("reload")
                         .requires(src -> src.hasPermission(2))
                         .executes(context -> {
@@ -58,8 +60,8 @@ public class CustomGearCommandHandler {
                             long last = lastReloadTime.get();
                             long remaining = RELOAD_COOLDOWN_MS - (now - last);
                             if (remaining > 0) {
-                                source.sendFailure(Component.literal(
-                                        "[CustomGear] Reload on cooldown. Wait " + (remaining / 1000 + 1) + "s."));
+                                source.sendFailure(Component.translatable(
+                                        "customgear.command.reload.cooldown", remaining / 1000 + 1));
                                 return 0;
                             }
                             lastReloadTime.set(now);
@@ -105,6 +107,10 @@ public class CustomGearCommandHandler {
                                     RecipeLoader.loadAll(DYNAMIC_PACK, validated.gear,
                                             validated.items, allBlocks);
 
+                                    // 3.55. recipe_patch: removals apply in the datapack reload at step 6
+                                    RecipePatchLoader.loadAll(DYNAMIC_PACK, universalResult.recipePatches);
+                                    RecipePatchHandler.setPatches(universalResult.recipePatches);
+
                                     // 3.6. Tag files: one shared builder, emitted once at 5.9
                                     TagFileBuilder tagFiles = new TagFileBuilder();
                                     BlockTagLoader.loadAll(tagFiles, allBlocks);
@@ -136,6 +142,7 @@ public class CustomGearCommandHandler {
 
                                     // 5.5. Re-capture the content hash so new connections
                                     // validate against the reloaded content (zips included)
+                                    roots.excludeEntries(validated.dropped);
                                     ContentHasher.capture(roots);
                                 }
 
@@ -163,10 +170,10 @@ public class CustomGearCommandHandler {
                                 return 1;
 
                             } catch (Exception e) {
-                                // FIX: no exponer rutas internas ni stack traces al jugador
+                                // FIX: don't expose internal paths or stack traces to the player
                                 source.sendFailure(
                                         Component.translatable("customgear.command.reload.error"));
-                                // El detalle completo solo va al log del servidor
+                                // The full detail only goes to the server log
                                 LOGGER.error("[CustomGear] Reload failed", e);
                                 return 0;
                             }
@@ -217,6 +224,9 @@ public class CustomGearCommandHandler {
                                             validated.items, allBlocks, validated.fluids, backpacks);
                                     RecipeLoader.loadAll(sink, validated.gear,
                                             validated.items, allBlocks);
+                                    // Additions only: removals are not files, and a dump
+                                    // must not change the live patch list.
+                                    RecipePatchLoader.loadAll(sink, universalResult.recipePatches);
                                     BlockLootLoader.loadAll(sink, allBlocks);
 
                                     TagFileBuilder tagFiles = new TagFileBuilder();

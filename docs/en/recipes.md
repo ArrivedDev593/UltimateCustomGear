@@ -33,6 +33,13 @@ accept any item in that tag:
 
 Works in every recipe type this mod builds itself. Inside `passthrough` you write tags the way the target mod expects them (usually `{"tag": "c:ingots/gold"}`), not with the `#` shorthand — that body is copied verbatim and never translated. Recipes with structural errors (uneven pattern rows, undefined pattern symbols, unused keys, malformed IDs) are skipped with a detailed message in the log naming the item and the exact problem.
 
+**Ingredients from other mods.** A recipe that uses another mod's item as an
+ingredient — `"mekanism:ingot_osmium"`, say — only loads when that mod is
+installed. Without it, the recipe is skipped quietly instead of logging an
+error, so the same content works in modpacks with and without the mod. Nothing
+to write: it is read from the ingredients. Tags need none of this, since an
+empty tag is not an error.
+
 ## Individual item recipe
 
 ```json
@@ -195,6 +202,144 @@ result from the item that owns the recipe; here the result lives inside your
 > versions, and a deserializer that throws can take down datapack loading
 > entirely — not just that one recipe. Re-check your passthrough recipes when
 > you update the target mod.
+
+Working examples for Create, Mekanism and Botania machines are in
+[Recipe Examples](recipe-examples.md).
+
+## Changing other recipes (`recipe_patch`)
+
+Every recipe above belongs to an item of yours. A `recipe_patch` is a file of
+its own that works on **any** item and any recipe — vanilla, Create,
+Mekanism, any mod — in three modes: **add**, **remove** and **replace**. One
+file can use any of them.
+
+Every recipe inside a patch is written exactly like an item's `recipe` field:
+`shaped`, `smelting`… or `passthrough` for another mod's recipe type.
+
+### Add
+
+`add` gives recipes to items that are not yours. The key is the item the
+recipe makes; the value is one recipe or an array:
+
+```json
+{
+  "type": "recipe_patch",
+  "add": {
+    "minecraft:saddle": {
+      "type": "shaped",
+      "pattern": ["LLL", "L L"],
+      "key": { "L": "minecraft:leather" }
+    },
+    "mekanism:dust_iron": [
+      { "type": "smelting", "ingredient": "#c:raw_materials/iron" },
+      {
+        "type": "passthrough",
+        "json": {
+          "type": "create:milling",
+          "ingredients": [{ "item": "minecraft:iron_ore" }],
+          "results": [{ "id": "mekanism:dust_iron" }]
+        }
+      }
+    ]
+  }
+}
+```
+
+A recipe for another mod's item only loads when that mod is installed, and a
+passthrough recipe only when the mod of its `type` is. In a passthrough
+recipe the result is the one inside `json`; the key only names the recipe.
+
+Added recipes get the ID `customgear:patch/<namespace>/<item>_recipe`
+(`_recipe_2`, `_recipe_3`… when there are several).
+
+### Remove
+
+```json
+{
+  "type": "recipe_patch",
+  "remove": ["minecraft:gold_ingot_from_nuggets"],
+  "remove_output": ["minecraft:golden_apple"],
+  "recipe_types": ["minecraft:crafting"]
+}
+```
+
+- `remove` takes recipe IDs.
+- `remove_output` takes item IDs and removes every recipe whose **main**
+  output is that item.
+- `recipe_types` limits `remove_output` to those types — here, the crafting
+  recipe of the golden apple goes and any other stays. Without it, all types.
+  A type without a namespace is a vanilla one: `"smelting"` is
+  `"minecraft:smelting"`. Other mods' types need theirs: `"create:crushing"`.
+
+**Main and secondary outputs.** `remove_output` only matches the main output —
+what the recipe makes first. Create's crushing of gold ore also gives
+experience nuggets, and a Mekanism sawmill gives sawdust next to the planks.
+Removing a recipe removes **all** of it, so matching those secondary outputs
+would wipe the gold crushing just to stop the nuggets. To remove one of those
+recipes, use its ID in `remove`.
+
+`remove_output` never removes recipes added by a `recipe_patch`, so "remove
+every recipe for X and add mine" works in a single file.
+
+### Replace
+
+`replace` swaps a recipe for another **under the same ID**, so recipe-book
+unlocks, advancements and anything else that names the recipe keep working.
+The key is the recipe ID:
+
+```json
+{
+  "type": "recipe_patch",
+  "replace": {
+    "minecraft:hopper": {
+      "type": "shaped",
+      "pattern": ["I I", "ICI", " I "],
+      "key": { "I": "minecraft:iron_ingot", "C": "#c:chests" }
+    }
+  }
+}
+```
+
+The new recipe makes the same item as the original, and the same amount,
+unless you say otherwise: `result` changes the item and `result_count` the
+amount. A `passthrough` replacement carries its own result in `json`.
+
+Only an existing recipe is replaced. If the ID is not loaded — its mod is not
+installed — nothing is added in its place. If the new recipe is invalid, the
+original stays and the log says why.
+
+### Finding IDs
+
+`/customgear recipes <item>` (or with the item in your hand) lists every
+recipe that makes it, grouped by type, with the secondary outputs apart in
+yellow. Click a recipe ID or a type to copy it. It reads the live recipes with
+patches already applied, so it also tells you whether a patch worked.
+
+An ID from a mod that is not installed is ignored silently, so one patch can
+serve several modpacks. When the mod **is** loaded and the ID does not exist,
+a warning is logged: that is a typo.
+
+| Field           | Type     | Description                                                                               |
+|-----------------|----------|-------------------------------------------------------------------------------------------|
+| `add`           | Map      | Item ID → recipe or array of recipes                                                      |
+| `remove`        | String[] | Recipe IDs to remove                                                                      |
+| `remove_output` | String[] | Item IDs: every recipe whose **main** output is that item is removed                      |
+| `recipe_types`  | String[] | Limits `remove_output` to these recipe types, e.g. `["minecraft:crafting"]`. Default: all |
+| `replace`       | Map      | Recipe ID → new recipe. Accepts `result` besides the usual recipe fields                  |
+| `comment`       | String   | Never parsed. A patch has no name, so without this the file gives no clue why it exists   |
+
+At least one of `add`, `remove`, `remove_output` or `replace` is required.
+Several patches add up.
+
+> ⚠️ Some "recipes" are not recipes. Tables that work in code — Iron's
+> Spellbooks' inscription table, scroll forge and arcane anvil — and recipes a
+> mod only draws in JEI are not in the recipe list, so neither the command nor
+> a patch can see them. The same goes for machines that make fluids or
+> chemicals instead of items (Mekanism's chemical washer, for example):
+> `remove_output` takes items, but `remove` and `replace` by ID work on them.
+
+See [Recipe Examples](recipe-examples.md) for complete patches that use
+Create, Mekanism and Botania recipe types.
 
 ## Recipe Fields
 

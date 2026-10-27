@@ -1,9 +1,38 @@
 # Keeps the workflow actions current on its own. Without this, action versions
 # silently rot until a runtime deprecation breaks a release.
+#
+# Dependabot reads this file from the default branch only, and without
+# target-branch it only updates the default branch. Every live Neo/* branch has
+# its own workflows, so each needs its own entry here. Add one when a branch is
+# created (a future Neo/26.3, for instance); this file does not need copying to
+# the other branches.
 version: 2
 updates:
   - package-ecosystem: "github-actions"
     directory: "/"
+    target-branch: "Neo/1.21.1"
+    schedule:
+      interval: "monthly"
+    commit-message:
+      prefix: "chore"
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    target-branch: "Neo/26.1.2"
+    schedule:
+      interval: "monthly"
+    commit-message:
+      prefix: "chore"
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    target-branch: "Neo/26.2"
     schedule:
       interval: "monthly"
     commit-message:
