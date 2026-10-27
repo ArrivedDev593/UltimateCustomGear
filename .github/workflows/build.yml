@@ -118,7 +118,9 @@ jobs:
           fi
 
           jar=$(ls build/libs/*.jar | grep -v -- '-sources' | head -n1)
+          # The jar is all lowercase; the name shown on CurseForge keeps the mod's capitals
           name=$(basename "$jar" .jar)
+          name="${name/#ultimatecustomgear/UltimateCustomGear}"
 
           metadata=$(jq -nc \
             --arg changelog "$CHANGELOG" \
