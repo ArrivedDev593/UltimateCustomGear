@@ -132,7 +132,7 @@ jobs:
           curl -sS --fail-with-body -X POST \
             "https://minecraft.curseforge.com/api/projects/$CURSEFORGE_PROJECT_ID/upload-file" \
             -H "X-Api-Token: $CURSEFORGE_TOKEN" \
-            -F "metadata=$metadata" -F "file=@$jar"
+            --form-string "metadata=$metadata" -F "file=@$jar"
           echo
           git tag "$tag"
           git push origin "$tag"
