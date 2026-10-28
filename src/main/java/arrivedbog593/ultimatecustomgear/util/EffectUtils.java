@@ -56,9 +56,9 @@ public class EffectUtils {
     public static final int EFFECT_DURATION_TICKS = 240;
 
     /**
-     * Aplica un conjunto de efectos a un jugador con duración corta renovable.
-     * Llamar cada ~20 ticks mientras la condición (ítem sostenido, set puesto)
-     * siga activa; vanilla extiende la duración en cada llamada.
+     * Applies a set of effects to a player with a short, renewable duration.
+     * Call every ~20 ticks while the condition (item held, set worn) still
+     * holds; vanilla extends the duration on every call.
      */
     public static void applyEffects(Player player, List<GearData.EffectData> effects) {
         if (effects == null) return;
@@ -81,14 +81,14 @@ public class EffectUtils {
     }
 
     /**
-     * Remueve un conjunto de efectos de un jugador — pero SOLO si el efecto
-     * activo parece ser nuestro: mismo amplificador y duración dentro de
-     * nuestro rango renovable. Un efecto con mayor duración o distinto
-     * amplificador es una poción legítima del jugador y no se toca.
+     * Removes a set of effects from a player — but ONLY if the active effect
+     * looks like ours: the same amplifier and a duration within our renewable
+     * range. An effect with a longer duration or a different amplifier is a
+     * legitimate potion of the player's and is left alone.
      * <p>
-     * Caso límite conocido y aceptado: una poción real en sus últimos 12
-     * segundos con el mismo amplificador es indistinguible de nuestro efecto
-     * y sería removida — costo máximo, 12s del final de una poción.
+     * Known and accepted edge case: a real potion in its last 12 seconds with
+     * the same amplifier can't be told apart from our effect and gets
+     * removed — at most, the last 12s of a potion.
      */
     public static void removeEffects(Player player, List<GearData.EffectData> effects) {
         if (effects == null) return;

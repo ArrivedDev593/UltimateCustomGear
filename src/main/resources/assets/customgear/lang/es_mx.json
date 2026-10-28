@@ -13,8 +13,14 @@
 
   "customgear.command.reload.success": "✓ Items recargados. Presiona F3+T si cambiaste texturas",
   "customgear.command.reload.error": "✗ Error al recargar",
+  "customgear.command.reload.cooldown": "[CustomGear] Reload en enfriamiento. Espera %ss.",
   "customgear.command.dump.success": "[CustomGear] %s archivos volcados en %s",
   "customgear.command.dump.error": "[CustomGear] El volcado falló — revisa el log del servidor para más detalles",
+  "customgear.command.recipes.header": "[CustomGear] Recetas cuyo resultado principal es %s (%s):",
+  "customgear.command.recipes.none": "[CustomGear] Ninguna receta da %s. Las recetas de máquinas que no informan su resultado no se encuentran así — usa su ID.",
+  "customgear.command.recipes.copy": "Haz clic para copiar",
+  "customgear.command.recipes.secondary": "También sale como resultado secundario de (%s) — quitar una quita la receta entera:",
+  "customgear.command.recipes.no_item": "[CustomGear] Sostén un ítem en la mano, o indícalo: /customgear recipes <ítem>",
 
   "customgear.container.search": "Buscar",
   "customgear.container.search.mod": "@ busca por mod",

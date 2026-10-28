@@ -1,8 +1,9 @@
 # Commands
 
-| Command              | Permission | Description                                            |
-|----------------------|------------|--------------------------------------------------------|
-| `/customgear reload` | OP level 2 | Reloads all JSON files and textures without restarting |
+| Command                      | Permission | Description                                                                                                                                                  |
+|------------------------------|------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `/customgear reload`         | OP level 2 | Reloads all JSON files and textures without restarting                                                                                                       |
+| `/customgear recipes [item]` | Everyone   | Lists the recipes that make an item (the one in hand by default), with click-to-copy IDs. See [recipe_patch](recipes.md#changing-other-recipes-recipe_patch) |
 
 ## What the reload command updates
 

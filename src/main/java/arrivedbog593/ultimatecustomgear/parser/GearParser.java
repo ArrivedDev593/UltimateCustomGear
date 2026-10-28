@@ -39,7 +39,7 @@ public class GearParser {
     /**
      * Loads gear from every content root: the loose folder plus every zip
      * mounted from packs/. Cache keys are prefixed with the root label
-     * ("packs/foo.zip!inner/path.json") so zip entries and loose files never
+     * ("packs/foo.zip!inner/path.json"), so zip entries and loose files never
      * collide in the cache. Zip entries are cached like loose files — their
      * lastModified comes from the entry inside the zip.
      */
@@ -64,14 +64,14 @@ public class GearParser {
             Path canonicalRoot = root.isLoose() ? ParserUtils.resolveCanonical(root.path()) : null;
             if (root.isLoose() && canonicalRoot == null) continue;
 
-            try {
-                Files.walk(root.path())
-                        .filter(p -> p.toString().endsWith(".json")
+            try (var stream = Files.walk(root.path())) {
+                stream.filter(p -> p.toString().endsWith(".json")
                                 && !root.path().relativize(p).startsWith(".cache")
                                 && !root.path().relativize(p).startsWith("packs"))
+                        .sorted(ParserUtils.walkOrder(root.path()))
                         .forEach(path -> {
                             if (root.isLoose() && !ParserUtils.isSafeChild(path, canonicalRoot)) {
-                                LOGGER.warn("[CustomGear] Skipping file outside customgear/ dir (possible symlink attack): {}", path);
+                                LOGGER.warn("[CustomGear] Skipping file outside ultimatecustomgear/ dir (possible symlink attack): {}", path);
                                 return;
                             }
 
@@ -101,11 +101,13 @@ public class GearParser {
                                 // once, on the run that first parsed it, and never again.
                                 if (validate(data, path)) {
                                     if (!seenIds.add(data.id)) {
+                                        contentRoots.exclude(path);
                                         LOGGER.error("[CustomGear] Duplicate ID '{}' — file '{}' will be ignored. "
                                                 + "Each gear ID must be unique across all JSON files and packs.", data.id, relKey);
                                         return;
                                     }
                                     result.add(data);
+                                    contentRoots.recordSource(data, path);
                                     if (fromCache) {
                                         LOGGER.debug("[CustomGear] Cache hit: {}", relKey);
                                     } else {

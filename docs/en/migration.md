@@ -70,6 +70,12 @@ Those values now apply. Nobody writes both on purpose, but if you did, remove th
 
 See [Textures & Models](textures-and-models.md) for the full rule.
 
+### Network protocol
+
+1.7.0 clients cannot join 1.6.x servers, and vice versa: 1.7.0 adds network
+channels the older version doesn't have, and the connection is refused before
+joining. Both sides must update together. Nothing to change in your JSON files.
+
 ## 1.6.0
 
 ### `cooking_time` is now in seconds

@@ -5,6 +5,7 @@ English and Spanish notes in the same document.
 
 | Version           | Notes                                                                  |
 |-------------------|------------------------------------------------------------------------|
+| 2.1.0             | [changelog-2.1.0.md](changelogs/changelog-2.1.0.md) — Minecraft 26.1.2 |
 | 2.0.2             | [changelog-2.0.2.md](changelogs/changelog-2.0.2.md) — Minecraft 26.1.2 |
 | 2.0.1             | [changelog-2.0.1.md](changelogs/changelog-2.0.1.md) — Minecraft 26.1.2 |
 | 2.0.0             | [changelog-2.0.0.md](changelogs/changelog-2.0.0.md) — Minecraft 26.1.2 |

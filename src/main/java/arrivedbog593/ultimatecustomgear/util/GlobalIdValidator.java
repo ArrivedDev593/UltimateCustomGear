@@ -60,6 +60,8 @@ public final class GlobalIdValidator {
         public final List<FluidData> fluids = new ArrayList<>();
         public final List<ContainerContentData> containers = new ArrayList<>();
         public int droppedEntries = 0;
+        /** The dropped entries themselves, so their files can be left out of the content hash. */
+        public final List<Object> dropped = new ArrayList<>();
     }
 
     public static Result validate(List<GearData> gearList, List<ItemData> itemList,
@@ -84,6 +86,7 @@ public final class GlobalIdValidator {
                 result.gear.add(data);
             } else {
                 result.droppedEntries++;
+                result.dropped.add(data);
             }
         }
 
@@ -96,6 +99,7 @@ public final class GlobalIdValidator {
                 result.items.add(data);
             } else {
                 result.droppedEntries++;
+                result.dropped.add(data);
             }
         }
 
@@ -110,6 +114,7 @@ public final class GlobalIdValidator {
                 result.blocks.add(data);
             } else {
                 result.droppedEntries++;
+                result.dropped.add(data);
             }
         }
 
@@ -131,6 +136,7 @@ public final class GlobalIdValidator {
                 result.containers.add(data);
             } else {
                 result.droppedEntries++;
+                result.dropped.add(data);
             }
         }
 
@@ -147,6 +153,7 @@ public final class GlobalIdValidator {
                 result.fluids.add(data);
             } else {
                 result.droppedEntries++;
+                result.dropped.add(data);
             }
         }
 

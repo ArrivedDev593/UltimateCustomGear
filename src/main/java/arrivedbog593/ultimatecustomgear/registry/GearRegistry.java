@@ -4,9 +4,7 @@ import arrivedbog593.ultimatecustomgear.data.GearData;
 import arrivedbog593.ultimatecustomgear.items.gear.CustomArmorItem;
 import arrivedbog593.ultimatecustomgear.items.tools.CustomToolItem;
 import arrivedbog593.ultimatecustomgear.items.weapons.*;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
-import net.minecraft.world.item.Item;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.registries.DeferredRegister;
@@ -24,23 +22,23 @@ public class GearRegistry {
     public static final DeferredRegister.Items ITEMS =
             DeferredRegister.createItems("customgear");
 
-    // FIX: ConcurrentHashMap para lectura segura en múltiples hilos.
-    // Se expone como mapa inmutable mediante getters para que otros mods no lo modifiquen directamente.
+    // FIX: ConcurrentHashMap so reads are safe across threads.
+    // Exposed only as an immutable map through getters, so other mods can't modify it directly.
     private static volatile Map<Identifier, GearData> gearMap = new ConcurrentHashMap<>();
     private static volatile Map<Identifier, String>   toolTypeMap = new ConcurrentHashMap<>();
 
     /**
-     * Acceso directo (paquete interno) para lookups de alto rendimiento en tick events.
-     * No expuesto como public para evitar modificaciones externas.
+     * Direct lookup for the hot paths in tick events. Returns one entry; the map
+     * itself stays private so nothing outside this class can modify it.
      */
     public static GearData lookupGear(Identifier loc) {
         return gearMap.get(loc);
     }
 
     /**
-     * Reemplaza ambos mapas de forma atómica durante el reload.
-     * Los items que estén leyendo el mapa antiguo lo terminan de leer sin NPE;
-     * las lecturas posteriores ya usan el mapa nuevo.
+     * Replaces both maps atomically during a reload.
+     * Items already reading the old map finish reading it without an NPE;
+     * later reads use the new map.
      */
     public static void atomicSwap(Map<Identifier, GearData> newGearMap,
                                   Map<Identifier, String>   newToolTypeMap) {
