@@ -8,6 +8,7 @@ import org.apache.logging.log4j.Logger;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Comparator;
 
 /**
  * Shared utilities for GearParser and UniversalParser.
@@ -78,5 +79,16 @@ public final class ParserUtils {
             LOGGER.warn("[CustomGear] Cannot resolve path, skipping: {} — {}", file, e.getMessage());
             return false;
         }
+    }
+
+    /**
+     * The order the parsers visit the files of one root: by path relative to
+     * the root, with '/' as the separator, case-sensitive. The first file with
+     * a given id wins, so client and server must visit files in the same
+     * order — and neither Files.walk nor Path's own ordering gives that across
+     * OSes (Windows compares ignoring case and with '\').
+     */
+    public static Comparator<Path> walkOrder(Path root) {
+        return Comparator.comparing(p -> root.relativize(p).toString().replace('\\', '/'));
     }
 }

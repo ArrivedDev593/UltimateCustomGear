@@ -41,3 +41,5 @@ runServer/
 repo/
 !**/src/**/repo/
 /.mcp.json
+
+logs/

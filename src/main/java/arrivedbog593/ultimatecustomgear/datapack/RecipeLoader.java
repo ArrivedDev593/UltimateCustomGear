@@ -106,13 +106,19 @@ public class RecipeLoader {
         return count;
     }
 
-    private static JsonObject buildRecipeJson(String itemId, RecipeData data) {
+    /**
+     * Builds one recipe's JSON, or null when invalid. {@code itemId} is the
+     * output: a bare id is this mod's own item, a full "namespace:path" id is
+     * anyone's — what recipe_patch uses to give a vanilla or foreign item a
+     * recipe in the same friendly format.
+     */
+    public static JsonObject buildRecipeJson(String itemId, RecipeData data) {
         if (data.type == null) {
             LOGGER.warn("[CustomGear] Recipe for '{}' missing 'type' — skipping", itemId);
             return null;
         }
         warnUnusedFields(itemId, data);
-        return switch (data.type) {
+        JsonObject json = switch (data.type) {
             case "shaped"             -> buildShaped(itemId, data);
             case "shapeless"          -> buildShapeless(itemId, data);
             case "smelting"           -> buildCooking("minecraft:smelting", itemId, data, 10f);
@@ -128,6 +134,75 @@ public class RecipeLoader {
                 yield null;
             }
         };
+        // Passthrough already requires its mods: its type's namespace plus "requires".
+        if (json != null && !"passthrough".equals(data.type)) requireIngredientMods(json);
+        return json;
+    }
+
+    /**
+     * A friendly-type recipe naming another mod's item as an ingredient gets a
+     * mod_loaded condition on that mod. Without the mod the recipe is then
+     * skipped quietly, instead of failing to parse and logging an error — which
+     * matters for content written for several modpacks. Tags need nothing: an
+     * empty tag is not an error. Like passthrough, this assumes an item's
+     * namespace is its mod's id, which holds for practically every mod.
+     */
+    private static void requireIngredientMods(JsonObject json) {
+        Set<String> mods = new TreeSet<>();
+        collectIngredientMods(json, mods);
+        addModConditions(json, mods);
+    }
+
+    /** The fields the builders below put ingredients in; "result" is the output, not an ingredient. */
+    private static final List<String> INGREDIENT_FIELDS =
+            List.of("key", "ingredients", "ingredient", "template", "base", "addition");
+
+    private static void collectIngredientMods(JsonObject json, Set<String> mods) {
+        for (String field : INGREDIENT_FIELDS) {
+            JsonElement value = json.get(field);
+            if (value != null) collectItemNamespaces(value, mods);
+        }
+    }
+
+    private static void collectItemNamespaces(JsonElement element, Set<String> mods) {
+        if (element.isJsonArray()) {
+            for (JsonElement child : element.getAsJsonArray()) collectItemNamespaces(child, mods);
+        } else if (element.isJsonObject()) {
+            // A shaped recipe's "key": symbol → ingredient
+            for (JsonElement child : element.getAsJsonObject().asMap().values()) collectItemNamespaces(child, mods);
+        } else if (element.isJsonPrimitive() && element.getAsJsonPrimitive().isString()) {
+            String value = element.getAsString();
+            if (value.startsWith("#")) return; // a tag
+            Identifier id = Identifier.tryParse(value);
+            if (id == null) return;
+            String ns = id.getNamespace();
+            if (!ns.equals("minecraft") && !ns.equals("customgear")) mods.add(ns);
+        }
+    }
+
+    /**
+     * Adds a neoforge:mod_loaded condition per mod to a recipe, keeping the
+     * conditions it already has and never adding the same mod twice.
+     */
+    public static void addModConditions(JsonObject json, Collection<String> mods) {
+        if (mods.isEmpty()) return;
+        JsonArray conditions = json.has("neoforge:conditions") && json.get("neoforge:conditions").isJsonArray()
+                ? json.getAsJsonArray("neoforge:conditions")
+                : new JsonArray();
+        Set<String> present = new HashSet<>();
+        for (JsonElement element : conditions) {
+            if (element instanceof JsonObject condition && condition.has("modid")) {
+                present.add(condition.get("modid").getAsString());
+            }
+        }
+        for (String mod : mods) {
+            if (!present.add(mod)) continue;
+            JsonObject condition = new JsonObject();
+            condition.addProperty("type", "neoforge:mod_loaded");
+            condition.addProperty("modid", mod);
+            conditions.add(condition);
+        }
+        json.add("neoforge:conditions", conditions);
     }
 
     // ── Shaped ────────────────────────────────────────────────────────────────
@@ -211,7 +286,7 @@ public class RecipeLoader {
 
         JsonObject key = new JsonObject();
         for (Map.Entry<String, String> entry : data.key.entrySet()) {
-            JsonObject ing = ingredient(entry.getValue(), itemId, "key '" + entry.getKey() + "'");
+            JsonPrimitive ing = ingredient(entry.getValue(), itemId, "key '" + entry.getKey() + "'");
             if (ing == null) return null;
             key.add(entry.getKey(), ing);
         }
@@ -239,7 +314,7 @@ public class RecipeLoader {
 
         JsonArray ingredients = new JsonArray();
         for (String id : data.ingredients) {
-            JsonObject ing = ingredient(id, itemId, "ingredients");
+            JsonPrimitive ing = ingredient(id, itemId, "ingredients");
             if (ing == null) return null;
             ingredients.add(ing);
         }
@@ -261,7 +336,7 @@ public class RecipeLoader {
         JsonObject obj = new JsonObject();
         obj.addProperty("type", type);
 
-        JsonObject ing = ingredient(data.ingredient, itemId, "ingredient");
+        JsonPrimitive ing = ingredient(data.ingredient, itemId, "ingredient");
         if (ing == null) return null;
         obj.add("ingredient", ing);
 
@@ -307,7 +382,7 @@ public class RecipeLoader {
         JsonObject obj = new JsonObject();
         obj.addProperty("type", "minecraft:stonecutting");
 
-        JsonObject ing = ingredient(data.ingredient, itemId, "ingredient");
+        JsonPrimitive ing = ingredient(data.ingredient, itemId, "ingredient");
         if (ing == null) return null;
         obj.add("ingredient", ing);
 
@@ -327,9 +402,9 @@ public class RecipeLoader {
         JsonObject obj = new JsonObject();
         obj.addProperty("type", "minecraft:smithing_transform");
 
-        JsonObject template = ingredient(data.template, itemId, "template");
-        JsonObject base     = ingredient(data.base,     itemId, "base");
-        JsonObject addition = ingredient(data.addition, itemId, "addition");
+        JsonPrimitive template = ingredient(data.template, itemId, "template");
+        JsonPrimitive base     = ingredient(data.base,     itemId, "base");
+        JsonPrimitive addition = ingredient(data.addition, itemId, "addition");
         if (template == null || base == null || addition == null) return null;
 
         obj.add("template", template);
@@ -401,16 +476,18 @@ public class RecipeLoader {
     // ── Helpers ───────────────────────────────────────────────────────────────
 
     /**
-     * Builds a vanilla ingredient object from a config value.
+     * Builds a vanilla ingredient from a config value. Since 1.21.2 an
+     * ingredient is the bare string — the {"item": ...} / {"tag": ...} objects
+     * of 1.21.1 no longer parse.
      * <ul>
-     *   <li>"minecraft:diamond"  → {"item": "minecraft:diamond"}</li>
-     *   <li>"#minecraft:planks"  → {"tag": "minecraft:planks"} (any plank)</li>
+     *   <li>"minecraft:diamond"  → "minecraft:diamond"</li>
+     *   <li>"#minecraft:planks"  → "#minecraft:planks" (any plank)</li>
      * </ul>
      * Returns null (with a clear log naming the item and the position) if the
      * resource location is syntactically invalid — vanilla would reject the
      * whole recipe file at load time with a much less helpful error.
      */
-    private static JsonObject ingredient(String value, String itemId, String where) {
+    private static JsonPrimitive ingredient(String value, String itemId, String where) {
         if (value == null || value.isBlank()) {
             LOGGER.warn("[CustomGear] Recipe for '{}': empty ingredient in {} — skipping recipe",
                     itemId, where);
@@ -429,14 +506,13 @@ public class RecipeLoader {
             return null;
         }
 
-        JsonObject obj = new JsonObject();
-        obj.addProperty(isTag ? "tag" : "item", rl);
-        return obj;
+        return new JsonPrimitive(isTag ? "#" + rl : rl);
     }
 
     private static JsonObject buildResult(String itemId, int count) {
         JsonObject result = new JsonObject();
-        result.addProperty("id", "customgear:" + itemId);
+        // Own ids never contain ':' (they are registry paths); a recipe_patch output always does.
+        result.addProperty("id", itemId.indexOf(':') >= 0 ? itemId : "customgear:" + itemId);
         if (count > 1) {
             result.addProperty("count", Math.min(count, 64));
         }

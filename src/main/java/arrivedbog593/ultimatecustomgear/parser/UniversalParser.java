@@ -43,6 +43,7 @@ public class UniversalParser {
         public final List<ItemData>        items        = new ArrayList<>();
         public final List<AdvancementData> advancements = new ArrayList<>();
         public final List<TagPatchData>    tagPatches   = new ArrayList<>();
+        public final List<RecipePatchData> recipePatches = new ArrayList<>();
         public final List<ContainerContentData> containers = new ArrayList<>();
     }
 
@@ -87,14 +88,14 @@ public class UniversalParser {
             Path canonicalRoot = root.isLoose() ? ParserUtils.resolveCanonical(root.path()) : null;
             if (root.isLoose() && canonicalRoot == null) continue;
 
-            try {
-                Files.walk(root.path())
-                        .filter(p -> p.toString().endsWith(".json")
+            try (var stream = Files.walk(root.path())) {
+                stream.filter(p -> p.toString().endsWith(".json")
                                 && !root.path().relativize(p).startsWith(".cache")
                                 && !root.path().relativize(p).startsWith("packs"))
+                        .sorted(ParserUtils.walkOrder(root.path()))
                         .forEach(path -> {
                             if (root.isLoose() && !ParserUtils.isSafeChild(path, canonicalRoot)) {
-                                LOGGER.warn("[CustomGear] Skipping file outside customgear/ dir: {}", path);
+                                LOGGER.warn("[CustomGear] Skipping file outside ultimatecustomgear/ dir: {}", path);
                                 return;
                             }
 
@@ -130,10 +131,12 @@ public class UniversalParser {
                                         // parsing, not a handful of field checks.
                                         if (validateBlock(data, path)) {
                                             if (!seenBlocks.add(data.id)) {
+                                                contentRoots.exclude(path);
                                                 LOGGER.error("[CustomGear] Duplicate block ID '{}' — skipping: {}", data.id, relKey);
                                                 return;
                                             }
                                             result.blocks.add(data);
+                                            contentRoots.recordSource(data, path);
                                             if (fromCache) {
                                                 LOGGER.debug("[CustomGear] Block cache hit: {}", relKey);
                                             } else {
@@ -159,10 +162,12 @@ public class UniversalParser {
 
                                         if (validateFluid(data, path)) {
                                             if (!seenFluids.add(data.id)) {
+                                                contentRoots.exclude(path);
                                                 LOGGER.error("[CustomGear] Duplicate fluid ID '{}' — skipping: {}", data.id, relKey);
                                                 return;
                                             }
                                             result.fluids.add(data);
+                                            contentRoots.recordSource(data, path);
                                             if (fromCache) {
                                                 LOGGER.debug("[CustomGear] Fluid cache hit: {}", relKey);
                                             } else {
@@ -188,10 +193,12 @@ public class UniversalParser {
 
                                         if (validateItem(data, path)) {
                                             if (!seenItems.add(data.id)) {
+                                                contentRoots.exclude(path);
                                                 LOGGER.error("[CustomGear] Duplicate item ID '{}' — skipping: {}", data.id, relKey);
                                                 return;
                                             }
                                             result.items.add(data);
+                                            contentRoots.recordSource(data, path);
                                             if (fromCache) {
                                                 LOGGER.debug("[CustomGear] Item cache hit: {}", relKey);
                                             } else {
@@ -222,6 +229,13 @@ public class UniversalParser {
                                                     data.registry, data.tag);
                                         }
                                     }
+                                    case "recipe_patch" -> {
+                                        RecipePatchData data = GSON.fromJson(json, RecipePatchData.class);
+                                        if (validateRecipePatch(data, path)) {
+                                            result.recipePatches.add(data);
+                                            LOGGER.info("[CustomGear] Recipe patch loaded: {}", path.getFileName());
+                                        }
+                                    }
                                     case "container" -> {
                                         GenericCache.CacheEntry<ContainerContentData> cached = containerCache.get(relKey);
                                         boolean fromCache =
@@ -232,10 +246,12 @@ public class UniversalParser {
 
                                         if (validateContainer(data, path)) {
                                             if (!seenBlocks.add(data.id)) {
+                                                contentRoots.exclude(path);
                                                 LOGGER.error("[CustomGear] Duplicate ID '{}' — skipping: {}", data.id, relKey);
                                                 return;
                                             }
                                             result.containers.add(data);
+                                            contentRoots.recordSource(data, path);
                                             if (fromCache) {
                                                 LOGGER.debug("[CustomGear] Container cache hit: {}", relKey);
                                             } else {
@@ -421,8 +437,27 @@ public class UniversalParser {
         return true;
     }
 
+    private static boolean validateRecipePatch(RecipePatchData data, Path path) {
+        boolean hasRemove = data.remove != null && !data.remove.isEmpty();
+        boolean hasRemoveOutput = data.removeOutput != null && !data.removeOutput.isEmpty();
+        boolean hasAdd = data.add != null && !data.add.isEmpty();
+        boolean hasReplace = data.replace != null && !data.replace.isEmpty();
+        if (!hasRemove && !hasRemoveOutput && !hasAdd && !hasReplace) {
+            LOGGER.warn("[CustomGear] recipe_patch has none of 'add', 'remove', 'remove_output' or "
+                    + "'replace' — nothing to do: {}", path.getFileName());
+            return false;
+        }
+        if (data.recipeTypes != null && !data.recipeTypes.isEmpty() && !hasRemoveOutput) {
+            // Accepted: the rest of the patch is fine. But 'recipe_types' only narrows
+            // remove_output, and someone who wrote it expected it to do something.
+            LOGGER.warn("[CustomGear] recipe_patch: 'recipe_types' only applies to 'remove_output', "
+                    + "which this patch doesn't have — ignored: {}", path.getFileName());
+        }
+        return true;
+    }
+
     /**
-     * A container needs its container object, a variant and a slot count. The
+     * A container needs its container object, a variant, and a slot count. The
      * upper bound on slots is a WARNING, not an error: 128 is where vanilla's
      * click packet gives up, but only for an action that changes that many
      * slots at once — which is hard to reach outside creative. The owner

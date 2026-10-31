@@ -9,9 +9,14 @@ import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * The set of places UltimateCustomGear content can live:
@@ -60,6 +65,11 @@ public final class ContentRoots implements AutoCloseable {
     private final List<Root> roots;
     private final List<FileSystem> openZipFilesystems;
 
+    /** The file each loaded entry came from, by identity. */
+    private final Map<Object, Path> sources = new IdentityHashMap<>();
+    /** Files whose content was read but not loaded: duplicate ids and entries dropped by GlobalIdValidator. */
+    private final Set<Path> excluded = new HashSet<>();
+
     private ContentRoots(Path configFolder, List<Root> roots, List<FileSystem> openZipFilesystems) {
         this.configFolder = configFolder;
         this.roots = List.copyOf(roots);
@@ -83,8 +93,9 @@ public final class ContentRoots implements AutoCloseable {
             try (var stream = Files.list(packsDir)) {
                 // Sorted: deterministic mount order on every OS. The handshake
                 // hash is path-independent, but ID-collision precedence isn't —
-                // it must resolve identically on client and server.
-                for (Path zipPath : stream.sorted().toList()) {
+                // it must resolve identically on client and server. By file name
+                // as a String, not by Path: Windows orders paths ignoring case.
+                for (Path zipPath : stream.sorted(Comparator.comparing(p -> p.getFileName().toString())).toList()) {
                     String name = zipPath.getFileName().toString().toLowerCase(Locale.ROOT);
 
                     if (name.endsWith(".zip")) {
@@ -141,6 +152,36 @@ public final class ContentRoots implements AutoCloseable {
     /** The loose config folder (where .cache and packs/ live). */
     public Path configFolder() {
         return configFolder;
+    }
+
+    // ── What was actually loaded ─────────────────────────────────────────────
+    //
+    // The content hash ignores paths and packaging, but which file wins a
+    // duplicate id depends on both. Without this, a client and a server with
+    // the same JSONs arranged differently hash the same and load different
+    // stats. Leaving out the files that lost makes the hash follow the winner.
+
+    /** Called by the parsers for every entry they keep. */
+    public void recordSource(Object entry, Path file) {
+        sources.put(entry, file);
+    }
+
+    /** Called by the parsers for a file skipped as a duplicate id. */
+    public void exclude(Path file) {
+        excluded.add(file);
+    }
+
+    /** Excludes the files of entries a later stage dropped (GlobalIdValidator). */
+    public void excludeEntries(List<?> entries) {
+        for (Object entry : entries) {
+            Path file = sources.get(entry);
+            if (file != null) excluded.add(file);
+        }
+    }
+
+    /** Whether ContentHasher must leave this file out. */
+    public boolean isExcluded(Path file) {
+        return excluded.contains(file);
     }
 
     /**

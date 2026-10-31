@@ -52,6 +52,11 @@ public final class CustomGearNetworking {
      * added to HashCheckPayload. Clients and servers on different protocol
      * versions are rejected by NeoForge's channel negotiation with a clear
      * version-mismatch message instead of a codec crash.
+     * <p>
+     * Bump it only when the wire format of an EXISTING payload changes.
+     * Adding a payload doesn't need it: negotiation already refuses a peer
+     * that lacks a required channel (that is how 1.6.x and 1.7.x keep apart),
+     * and a bump would also cut off every release that shares this protocol.
      */
     private static final String PROTOCOL_VERSION = "3";
 

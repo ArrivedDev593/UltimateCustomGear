@@ -17,6 +17,7 @@
 | [Containers](containers.md)                 | Barrels, chests, shulkers and backpacks                        |
 | [Textures & Models](textures-and-models.md) | The three texture modes, armor layers, 3D models with GeckoLib |
 | [Recipes](recipes.md)                       | Every recipe type, tags as ingredients, passthrough            |
+| [Recipe Examples](recipe-examples.md)       | Patches with Create, Mekanism and Botania machines             |
 | [Tags](tags.md)                             | Belonging to tags, automatic gear tags, tag patches            |
 | [Mob Drops](mob-drops.md)                   | Drop chance, count, entity filters, Looting                    |
 | [Damage Resistances](damage-resistances.md) | Reduction by damage type, by attacker, or both                 |

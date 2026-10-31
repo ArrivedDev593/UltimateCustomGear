@@ -22,9 +22,7 @@ import net.minecraft.world.entity.player.Inventory;
 import net.minecraft.world.inventory.Slot;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.network.PacketDistributor;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 import java.util.function.Predicate;
@@ -851,7 +849,7 @@ public class CustomContainerScreen extends AbstractContainerScreen<CustomContain
             playClick();
             return true;
         }
-        if (handleTransferKeys(null, event)) return true;
+        if (handleTransferMouse(event)) return true;
         if (overSearch(mouseX, mouseY)) {
             if (button == InputConstants.MOUSE_BUTTON_LEFT) {
                 focusSearch();
@@ -938,17 +936,21 @@ public class CustomContainerScreen extends AbstractContainerScreen<CustomContain
      * NOT over the player's own inventory, same rule as sorting: those slots
      * belong to vanilla's gestures.
      */
-    private boolean handleTransferKeys(@Nullable KeyEvent keyEvent, @Nullable MouseButtonEvent mouseEvent) {
+    private boolean handleTransferKeys(KeyEvent event) {
+        return handleTransfer(CustomGearKeys.TRANSFER_IN.matches(event),
+                CustomGearKeys.TRANSFER_OUT.matches(event));
+    }
+
+    /** {@link #handleTransferKeys} for a mouse button bound to a transfer. */
+    private boolean handleTransferMouse(MouseButtonEvent event) {
+        return handleTransfer(CustomGearKeys.TRANSFER_IN.matchesMouse(event),
+                CustomGearKeys.TRANSFER_OUT.matchesMouse(event));
+    }
+
+    private boolean handleTransfer(boolean in, boolean out) {
         if (overPlayerInventory()) return false;
 
         boolean all = Minecraft.getInstance().hasShiftDown();
-        boolean in  = mouseEvent != null
-                ? CustomGearKeys.TRANSFER_IN.matchesMouse(mouseEvent)
-                : CustomGearKeys.TRANSFER_IN.matches(keyEvent);
-        boolean out = mouseEvent != null
-                ? CustomGearKeys.TRANSFER_OUT.matchesMouse(mouseEvent)
-                : CustomGearKeys.TRANSFER_OUT.matches(keyEvent);
-
         if (in) {
             net.neoforged.neoforge.client.network.ClientPacketDistributor.sendToServer(new TransferItemsPayload(true, all));
             playClick();
@@ -983,7 +985,7 @@ public class CustomContainerScreen extends AbstractContainerScreen<CustomContain
             playClick();
             return true;
         }
-        if (!searchBox.isFocused() && handleTransferKeys(event, null)) return true;
+        if (!searchBox.isFocused() && handleTransferKeys(event)) return true;
         if (searchBox.isFocused()) {
             if (searchBox.keyPressed(event)) return true;
             if (searchBox.canConsumeInput()) return true;
